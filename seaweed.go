@@ -547,6 +547,16 @@ func (c *Seaweed) BatchUploadFileParts(files []*model.FilePart, collection strin
 	return results, nil
 }
 
+// Replace with file reader
+func (c *Seaweed) Replace(fileID string, fileReader io.Reader, fileName string, size int64, collection, ttl string, deleteFirst bool) (err error) {
+	fp := model.NewFilePartFromReader(fileReader, fileName, size)
+	fp.Collection, fp.Ttl = collection, ttl
+	fp.FileID = fileID
+
+	_, err = c.ReplaceFilePart(fp, deleteFirst)
+	return
+}
+
 // ReplaceFile ...
 func (c *Seaweed) ReplaceFile(fileID, filePath string, deleteFirst bool) error {
 	fp, e := model.NewFilePart(filePath)
