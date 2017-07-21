@@ -313,6 +313,21 @@ func (c *Seaweed) Status() (result *model.SystemStatus, err error) {
 	return
 }
 
+// ClusterStatus get cluster status
+func (c *Seaweed) ClusterStatus() (result *model.ClusterStatus, err error) {
+	data, _, err := c.HTTPClient.Get(c.Scheme, c.Master, "/cluster/status", nil)
+	if err != nil {
+		return
+	}
+
+	result = &model.ClusterStatus{}
+	if err = json.Unmarshal(data, result); err != nil {
+		return
+	}
+
+	return
+}
+
 // Assign do assign api
 func (c *Seaweed) Assign(args url.Values) (result *model.AssignResult, err error) {
 	if args == nil {
@@ -348,7 +363,7 @@ func (c *Seaweed) Submit(filePath string, collection, ttl string) (fileID string
 	return c.SubmitFilePart(fp, url.Values{})
 }
 
-// SubmitFilePart directly to server
+// SubmitFilePart directly to master
 func (c *Seaweed) SubmitFilePart(f *model.FilePart, args url.Values) (fileID string, size int64, err error) {
 	data, _, err := c.HTTPClient.Upload(libs.MakeURL(c.Scheme, c.Master, "/submit", args), f.FileName, f.Reader, f.IsGzipped, f.MimeType)
 	if err != nil {

@@ -27,6 +27,20 @@ type SubmitResult struct {
 	Error    string `json:"error,omitempty"`
 }
 
+// {
+//   "IsLeader": true,
+//   "Leader": "10.0.2.15:9333",
+//   "Peers": [
+//     "10.0.2.15:9334",
+//     "10.0.2.15:9335"
+//   ]
+// }
+type ClusterStatus struct {
+	IsLeader bool
+	Leader   string
+	Peers    []string
+}
+
 // SystemStatus ...
 type SystemStatus struct {
 	Topology Topology
