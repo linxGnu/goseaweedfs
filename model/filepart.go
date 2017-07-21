@@ -5,6 +5,7 @@ import (
 	"mime"
 	"os"
 	"path"
+	"path/filepath"
 	"strings"
 )
 
@@ -31,6 +32,24 @@ type FilePart struct {
 	FileID string
 }
 
+// NewFilePartFromReader ...
+func NewFilePartFromReader(reader io.Reader, fileName string, fileSize int64) *FilePart {
+	ret := FilePart{
+		Reader:   reader,
+		FileSize: fileSize,
+		FileName: fileName,
+	}
+
+	ext := strings.ToLower(path.Ext(fileName))
+	if ext != "" {
+		ret.MimeType = mime.TypeByExtension(ext)
+	}
+	ret.IsGzipped = ext == ".gz"
+
+	return &ret
+}
+
+// NewFilePart ...
 func NewFilePart(fullPathFilename string) (*FilePart, error) {
 	ret := FilePart{}
 
@@ -39,6 +58,7 @@ func NewFilePart(fullPathFilename string) (*FilePart, error) {
 		return nil, openErr
 	}
 	ret.Reader = fh
+	ret.FileName = filepath.Base(fullPathFilename)
 
 	if fi, fiErr := fh.Stat(); fiErr != nil {
 		return nil, fiErr
@@ -46,15 +66,12 @@ func NewFilePart(fullPathFilename string) (*FilePart, error) {
 		ret.ModTime = fi.ModTime().UTC().Unix()
 		ret.FileSize = fi.Size()
 	}
-	ext := strings.ToLower(path.Ext(fullPathFilename))
-	ret.IsGzipped = ext == ".gz"
-	if ret.IsGzipped {
-		ret.FileName = fullPathFilename[0 : len(fullPathFilename)-3]
-	}
-	ret.FileName = fullPathFilename
+
+	ext := strings.ToLower(path.Ext(ret.FileName))
 	if ext != "" {
 		ret.MimeType = mime.TypeByExtension(ext)
 	}
+	ret.IsGzipped = ext == ".gz"
 
 	return &ret, nil
 }

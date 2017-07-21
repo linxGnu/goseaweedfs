@@ -102,18 +102,27 @@ func (c *HTTPClient) Get(scheme, host, path string, values url.Values) (respBody
 		values = make(url.Values)
 	}
 
-	_url := MakeURL(scheme, host, path, values)
+	return c.GetWithURL(MakeURL(scheme, host, path, values))
+}
 
-	r, err := c.Client.Get(_url)
+// GetWithURL ...
+func (c *HTTPClient) GetWithURL(fullURL string) (respBody []byte, statusCode int, err error) {
+	defer func() {
+		if e := recover(); e != nil {
+			err = fmt.Errorf("%v", e)
+		}
+	}()
+
+	r, err := c.Client.Get(fullURL)
 	if err != nil {
-		err = fmt.Errorf("Get from %s: %v", _url, err)
+		err = fmt.Errorf("Get from %s: %v", fullURL, err)
 		return
 	}
 	defer r.Body.Close()
 
 	statusCode = r.StatusCode
 	if r.StatusCode != http.StatusOK {
-		err = fmt.Errorf("%s: %s", _url, r.Status)
+		err = fmt.Errorf("%s: %s", fullURL, r.Status)
 		return
 	}
 

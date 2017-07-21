@@ -61,12 +61,12 @@ const (
 	// 8y: 8 years
 	Param_Grow_TTL = "ttl" // specify time to live. Refers to: https://github.com/chrislusf/seaweedfs/wiki/Store-file-with-a-Time-To-Live
 
+	// admin operations
 	Param_Assign_Volume_Replication = "replication"
 	Param_Assign_Volume_Volume      = "volume"
-
-	Param_Delete_Volume_Volume  = "volume"
-	Param_Mount_Volume_Volume   = "volume"
-	Param_Unmount_Volume_Volume = "volume"
+	Param_Delete_Volume_Volume      = "volume"
+	Param_Mount_Volume_Volume       = "volume"
+	Param_Unmount_Volume_Volume     = "volume"
 )
 
 // UnGzipData ...
@@ -102,6 +102,7 @@ func LoadChunkManifest(buffer []byte, isGzipped bool) (*model.ChunkManifest, err
 // Seaweed ...
 type Seaweed struct {
 	Master     string
+	Filers     []*model.Filer
 	Scheme     string
 	ChunkSize  int64
 	HTTPClient *libs.HTTPClient
@@ -109,12 +110,22 @@ type Seaweed struct {
 }
 
 // NewSeaweed create new seaweed with default
-func NewSeaweed(scheme, master string, timeout time.Duration) *Seaweed {
-	return &Seaweed{
+func NewSeaweed(scheme, master string, filers []string, chunkSize int64, timeout time.Duration) *Seaweed {
+	res := &Seaweed{
 		Master:     master,
 		Scheme:     scheme,
 		HTTPClient: libs.NewHTTPClient(timeout),
+		cache:      cache.New(cacheDuration, cacheDuration*2),
+		ChunkSize:  chunkSize,
 	}
+	if filers != nil {
+		res.Filers = make([]*model.Filer, len(filers))
+		for i := range filers {
+			res.Filers[i] = model.NewFiler(filers[i], res.HTTPClient)
+		}
+	}
+
+	return res
 }
 
 // Grow pre-Allocate Volumes
@@ -352,7 +363,7 @@ func (c *Seaweed) Assign(args url.Values) (result *model.AssignResult, err error
 }
 
 // Submit file directly to master
-func (c *Seaweed) Submit(filePath string, collection, ttl string) (fileID string, size int64, err error) {
+func (c *Seaweed) Submit(filePath string, collection, ttl string) (result *model.SubmitResult, err error) {
 	fp, err := model.NewFilePart(filePath)
 	if err != nil {
 		return
@@ -364,31 +375,113 @@ func (c *Seaweed) Submit(filePath string, collection, ttl string) (fileID string
 }
 
 // SubmitFilePart directly to master
-func (c *Seaweed) SubmitFilePart(f *model.FilePart, args url.Values) (fileID string, size int64, err error) {
+func (c *Seaweed) SubmitFilePart(f *model.FilePart, args url.Values) (result *model.SubmitResult, err error) {
 	data, _, err := c.HTTPClient.Upload(libs.MakeURL(c.Scheme, c.Master, "/submit", args), f.FileName, f.Reader, f.IsGzipped, f.MimeType)
 	if err != nil {
 		return
 	}
 
-	submitResult := model.SubmitResult{}
-	if err = json.Unmarshal(data, &submitResult); err != nil {
+	result = &model.SubmitResult{}
+	if err = json.Unmarshal(data, result); err != nil {
 		return
 	}
 
-	fileID, size = submitResult.FileID, size
+	return
+}
+
+// Upload file by reader
+func (c *Seaweed) Upload(fileReader io.Reader, fileName string, size int64, collection, ttl string) (fp *model.FilePart, fileID string, err error) {
+	fp = model.NewFilePartFromReader(fileReader, fileName, size)
+	fp.Collection, fp.Ttl = collection, ttl
+
+	_, fileID, err = c.UploadFilePart(fp)
 	return
 }
 
 // UploadFile ...
-func (c *Seaweed) UploadFile(filePath string, collection, ttl string) (fileID string, err error) {
-	fp, e := model.NewFilePart(filePath)
-	if e != nil {
-		return "", e
+func (c *Seaweed) UploadFile(filePath string, collection, ttl string) (cm *model.ChunkManifest, fp *model.FilePart, fileID string, err error) {
+	fp, err = model.NewFilePart(filePath)
+	if err != nil {
+		return
 	}
-	fp.Collection = collection
-	fp.Ttl = ttl
+	fp.Collection, fp.Ttl = collection, ttl
 
-	return c.UploadFilePart(fp)
+	cm, fileID, err = c.UploadFilePart(fp)
+	return
+}
+
+// UploadFilePart ...
+func (c *Seaweed) UploadFilePart(f *model.FilePart) (cm *model.ChunkManifest, fileID string, err error) {
+	if f.FileID == "" {
+		args := make(url.Values)
+		if f.Collection != "" {
+			args.Set(Param_Collection, f.Collection)
+		}
+		if f.Ttl != "" {
+			args.Set(Param_TTL, f.Ttl)
+		}
+		args.Set(Param_Assign_Count, "1")
+
+		res, err := c.Assign(args)
+		if err != nil {
+			return nil, "", err
+		}
+		f.Server, f.FileID = res.URL, res.FileID
+	}
+
+	if f.Server == "" {
+		if f.Server, err = c.LookupServerByFileID(f.FileID, url.Values{Param_Collection: []string{f.Collection}}, false); err != nil {
+			return
+		}
+	}
+
+	if closer, ok := f.Reader.(io.Closer); ok { // closing after read content
+		defer closer.Close()
+	}
+
+	baseName := path.Base(f.FileName)
+	if c.ChunkSize > 0 && f.FileSize > c.ChunkSize {
+		chunks := f.FileSize/c.ChunkSize + 1
+
+		cm = &model.ChunkManifest{
+			Name:   baseName,
+			Size:   f.FileSize,
+			Mime:   f.MimeType,
+			Chunks: make([]*model.ChunkInfo, chunks),
+		}
+		args := url.Values{Param_Collection: []string{f.Collection}}
+
+		for i := int64(0); i < chunks; i++ {
+			_, id, count, e := c.uploadChunk(f, baseName+"_"+strconv.FormatInt(i+1, 10))
+			if e != nil { // delete all uploaded chunks
+				c.DeleteChunks(cm, args)
+				return nil, "", e
+			}
+
+			cm.Chunks[i] = &model.ChunkInfo{
+				Offset: i * c.ChunkSize,
+				Size:   int64(count),
+				Fid:    id,
+			}
+		}
+
+		if err = c.uploadManifest(f, cm); err != nil { // delete all uploaded chunks
+			c.DeleteChunks(cm, args)
+		}
+	} else {
+		args := url.Values{}
+		if f.ModTime != 0 {
+			args.Set("ts", strconv.FormatInt(f.ModTime, 10))
+		}
+
+		_, _, err = c.HTTPClient.Upload(libs.MakeURL(c.Scheme, f.Server, f.FileID, args), baseName, f.Reader, f.IsGzipped, f.MimeType)
+	}
+
+	if err == nil {
+		fileID = f.FileID
+	}
+
+	return
 }
 
 // BatchUploadFiles batch upload files
@@ -401,23 +494,13 @@ func (c *Seaweed) BatchUploadFiles(files []string, collection, ttl string) ([]*m
 	return c.BatchUploadFileParts(fps, collection, ttl)
 }
 
-// ReplaceFile ...
-func (c *Seaweed) ReplaceFile(fileID, filePath string, deleteFirst bool) error {
-	fp, e := model.NewFilePart(filePath)
-	if e != nil {
-		return e
-	}
-	fp.FileID = fileID
-
-	_, e = c.ReplaceFilePart(fp, deleteFirst)
-	return e
-}
-
 // BatchUploadFileParts ...
 func (c *Seaweed) BatchUploadFileParts(files []*model.FilePart, collection string, ttl string) ([]*model.SubmitResult, error) {
 	results := make([]*model.SubmitResult, len(files))
 	for index, file := range files {
-		results[index].FileName = file.FileName
+		results[index] = &model.SubmitResult{
+			FileName: file.FileName,
+		}
 	}
 
 	args := make(url.Values)
@@ -448,7 +531,7 @@ func (c *Seaweed) BatchUploadFileParts(files []*model.FilePart, collection strin
 			file.Server = ret.URL
 			file.Collection = collection
 
-			if _, err := c.UploadFilePart(file); err != nil {
+			if _, _, err := c.UploadFilePart(file); err != nil {
 				results[index].Error = err.Error()
 			}
 
@@ -464,78 +547,16 @@ func (c *Seaweed) BatchUploadFileParts(files []*model.FilePart, collection strin
 	return results, nil
 }
 
-// UploadFilePart ...
-func (c *Seaweed) UploadFilePart(f *model.FilePart) (fileID string, err error) {
-	if f.FileID == "" {
-		args := make(url.Values)
-		if f.Collection != "" {
-			args.Set(Param_Collection, f.Collection)
-		}
-		if f.Ttl != "" {
-			args.Set(Param_TTL, f.Ttl)
-		}
-		args.Set(Param_Assign_Count, "1")
-
-		res, err := c.Assign(args)
-		if err != nil {
-			return "", err
-		}
-		f.Server, f.FileID = res.URL, res.FileID
+// ReplaceFile ...
+func (c *Seaweed) ReplaceFile(fileID, filePath string, deleteFirst bool) error {
+	fp, e := model.NewFilePart(filePath)
+	if e != nil {
+		return e
 	}
+	fp.FileID = fileID
 
-	if f.Server == "" {
-		if f.Server, err = c.LookupFileID(f.FileID, url.Values{Param_Collection: []string{f.Collection}}, false); err != nil {
-			return
-		}
-	}
-
-	if closer, ok := f.Reader.(io.Closer); ok { // closing after read content
-		defer closer.Close()
-	}
-
-	baseName := path.Base(f.FileName)
-	if c.ChunkSize > 0 && f.FileSize > c.ChunkSize {
-		chunks := f.FileSize/c.ChunkSize + 1
-
-		cm := model.ChunkManifest{
-			Name:   baseName,
-			Size:   f.FileSize,
-			Mime:   f.MimeType,
-			Chunks: make([]*model.ChunkInfo, chunks),
-		}
-		args := url.Values{Param_Collection: []string{f.Collection}}
-
-		for i := int64(0); i < chunks; i++ {
-			id, count, e := c.uploadChunk(f, baseName+"-"+strconv.FormatInt(i+1, 10))
-			if e != nil { // delete all uploaded chunks
-				c.DeleteChunks(&cm, args)
-				return "", e
-			}
-
-			cm.Chunks[i] = &model.ChunkInfo{
-				Offset: i * c.ChunkSize,
-				Size:   int64(count),
-				Fid:    id,
-			}
-		}
-
-		if err = c.uploadManifest(f, &cm); err != nil { // delete all uploaded chunks
-			c.DeleteChunks(&cm, args)
-		}
-	} else {
-		args := url.Values{}
-		if f.ModTime != 0 {
-			args.Set("ts", strconv.FormatInt(f.ModTime, 10))
-		}
-
-		_, _, err = c.HTTPClient.Upload(libs.MakeURL(c.Scheme, f.Server, f.FileID, args), baseName, f.Reader, f.IsGzipped, f.MimeType)
-	}
-
-	if err == nil {
-		fileID = f.FileID
-	}
-
-	return
+	_, e = c.ReplaceFilePart(fp, deleteFirst)
+	return e
 }
 
 // ReplaceFilePart ...
@@ -544,12 +565,13 @@ func (c *Seaweed) ReplaceFilePart(f *model.FilePart, deleteFirst bool) (fileID s
 		c.DeleteFile(f.FileID, url.Values{Param_Collection: []string{f.Collection}})
 	}
 
-	return c.UploadFilePart(f)
+	_, fileID, err = c.UploadFilePart(f)
+	return
 }
 
-func (c *Seaweed) uploadChunk(f *model.FilePart, filename string) (fileID string, size int64, err error) {
+func (c *Seaweed) uploadChunk(f *model.FilePart, filename string) (assignResult *model.AssignResult, fileID string, size int64, err error) {
 	// Assign first to get file id and url for uploading
-	res, err := c.Assign(url.Values{
+	assignResult, err = c.Assign(url.Values{
 		Param_Collection:   []string{f.Collection},
 		Param_TTL:          []string{f.Ttl},
 		Param_Assign_Count: []string{"1"},
@@ -558,11 +580,11 @@ func (c *Seaweed) uploadChunk(f *model.FilePart, filename string) (fileID string
 		return
 	}
 
-	fileID = res.FileID
+	fileID = assignResult.FileID
 
 	// now do upload
 	dat, _, err := c.HTTPClient.Upload(
-		libs.MakeURL(c.Scheme, res.URL, res.FileID, nil),
+		libs.MakeURL(c.Scheme, assignResult.URL, assignResult.FileID, nil),
 		filename, io.LimitReader(f.Reader, c.ChunkSize),
 		false, "application/octet-stream")
 	if err != nil {
