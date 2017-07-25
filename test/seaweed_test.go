@@ -11,7 +11,7 @@ import (
 
 const (
 	// around 79 MB File
-	MediumFile = "/Volumes/MacSpace/Setup/go1.7.3.linux-amd64.tar.gz"
+	MediumFile = "/Volumes/MacSpace/Setup/mysql-5.6.27-linux-x86_64.tar.gz"
 
 	// around 3.4 MB
 	SmallFile = "/Volumes/MacSpace/Setup/sdb1.sql"
