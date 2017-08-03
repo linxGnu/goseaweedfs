@@ -1,29 +1,50 @@
-package test
+// The following environment variables, if set, will be used:
+//
+//	* GOSWFS_MASTER_URL
+//  * GOSWFS_SCHEME
+//	* GOSWFS_MEDIUM_FILE
+//	* GOSWFS_SMALL_FILE
+//
+package goseaweedfs
 
 import (
 	"encoding/json"
 	"fmt"
+	"os"
 	"testing"
 	"time"
-
-	"github.com/linxGnu/goseaweedfs"
 )
 
-const (
-	// around 79 MB File
-	MediumFile = "/Volumes/MacSpace/Setup/mysql-5.6.27-linux-x86_64.tar.gz"
+var sw *Seaweed
 
-	// around 3.4 MB
-	SmallFile = "/Volumes/MacSpace/Setup/sdb1.sql"
-)
+var MediumFile, SmallFile string
+
+func init() {
+	// check master url
+	if masterURL := os.Getenv("GOSWFS_MASTER_URL"); masterURL != "" {
+		scheme := os.Getenv("GOSWFS_SCHEME")
+		if scheme == "" {
+			scheme = "http"
+		}
+		sw = NewSeaweed(scheme, []string{masterURL}, nil, 0, 2*time.Minute)
+	}
+
+	MediumFile = os.Getenv("GOSWFS_MEDIUM_FILE")
+	SmallFile = os.Getenv("GOSWFS_SMALL_FILE")
+}
 
 func TestUploadLookupserverReplaceDeleteFile(t *testing.T) {
-	sw := goseaweedfs.NewSeaweed("http", "localhost:8898", nil, 0, 2*time.Minute)
+	if sw == nil {
+		return
+	}
+
+	if MediumFile == "" {
+		return
+	}
 
 	for i := 1; i <= 2; i++ {
 		_, fp, fID, err := sw.UploadFile(MediumFile, "", "")
 		if err != nil {
-			fmt.Println(err)
 			t.Fail()
 			return
 		}
@@ -31,7 +52,6 @@ func TestUploadLookupserverReplaceDeleteFile(t *testing.T) {
 
 		//
 		if server, err := sw.LookupServerByFileID(fID, nil, true); err != nil {
-			fmt.Println(err)
 			t.Fail()
 			return
 		} else {
@@ -40,7 +60,6 @@ func TestUploadLookupserverReplaceDeleteFile(t *testing.T) {
 
 		//
 		if fullURL, err := sw.LookupFileID(fID, nil, true); err != nil {
-			fmt.Println(err)
 			t.Fail()
 			return
 		} else {
@@ -49,7 +68,6 @@ func TestUploadLookupserverReplaceDeleteFile(t *testing.T) {
 
 		//
 		if err := sw.ReplaceFile(fID, SmallFile, false); err != nil {
-			fmt.Println(err)
 			t.Fail()
 			return
 		} else {
@@ -58,7 +76,6 @@ func TestUploadLookupserverReplaceDeleteFile(t *testing.T) {
 
 		//
 		if err := sw.ReplaceFile(fID, SmallFile, true); err != nil {
-			fmt.Println(err)
 			t.Fail()
 			return
 		} else {
@@ -67,7 +84,6 @@ func TestUploadLookupserverReplaceDeleteFile(t *testing.T) {
 
 		err = sw.DeleteFile(fID, nil)
 		if err != nil {
-			fmt.Println(err)
 			t.Fail()
 			return
 		}
@@ -75,44 +91,60 @@ func TestUploadLookupserverReplaceDeleteFile(t *testing.T) {
 }
 
 func TestBatchUploadFiles(t *testing.T) {
-	sw := goseaweedfs.NewSeaweed("http", "localhost:8898", nil, 0, 2*time.Minute)
-
-	//
-	result, err := sw.BatchUploadFiles([]string{MediumFile, SmallFile}, "", "")
-	if err != nil {
-		fmt.Println(err)
-		t.Fail()
+	if sw == nil {
 		return
 	}
 
-	for _, res := range result {
-		fmt.Println(res)
+	if MediumFile != "" && SmallFile != "" {
+		_, err := sw.BatchUploadFiles([]string{MediumFile, SmallFile}, "", "")
+		if err != nil {
+			t.Fail()
+			return
+		}
+	} else if MediumFile != "" {
+		_, err := sw.BatchUploadFiles([]string{MediumFile, MediumFile}, "", "")
+		if err != nil {
+			t.Fail()
+			return
+		}
+	} else if SmallFile != "" {
+		_, err := sw.BatchUploadFiles([]string{SmallFile, SmallFile}, "", "")
+		if err != nil {
+			t.Fail()
+			return
+		}
 	}
 }
 
 func TestGrow(t *testing.T) {
-	sw := goseaweedfs.NewSeaweed("http", "localhost:8898", nil, 0, 2*time.Minute)
+	if sw == nil {
+		return
+	}
+
 	if err := sw.Grow(12, "imgs", "000", "dc1"); err != nil {
-		fmt.Println(err)
 		t.Fail()
 	}
 }
 
 func TestLookup(t *testing.T) {
-	sw := goseaweedfs.NewSeaweed("http", "localhost:8898", nil, 0, 2*time.Minute)
+	if sw == nil {
+		return
+	}
+
 	_, err := sw.Lookup("1", nil)
 	if err != nil {
-		fmt.Println(err)
 		t.Fail()
 		return
 	}
 }
 
 func TestLookupVolumeIDs(t *testing.T) {
-	sw := goseaweedfs.NewSeaweed("http", "localhost:8898", nil, 0, 2*time.Minute)
+	if sw == nil {
+		return
+	}
+
 	res, err := sw.LookupVolumeIDs([]string{"50", "51", "1"})
 	if err != nil {
-		fmt.Println(err)
 		t.Fail()
 		return
 	}
@@ -123,61 +155,73 @@ func TestLookupVolumeIDs(t *testing.T) {
 }
 
 func TestStatus(t *testing.T) {
-	sw := goseaweedfs.NewSeaweed("http", "localhost:8898", nil, 0, 2*time.Minute)
+	if sw == nil {
+		return
+	}
+
 	status, err := sw.Status()
 	if err != nil {
-		fmt.Println(err)
 		t.Fail()
 		return
 	}
+
 	mar, _ := json.Marshal(status)
 	fmt.Println(string(mar))
 }
 
 func TestClusterStatus(t *testing.T) {
-	sw := goseaweedfs.NewSeaweed("http", "localhost:8898", nil, 0, 2*time.Minute)
+	if sw == nil {
+		return
+	}
+
 	status, err := sw.ClusterStatus()
 	if err != nil {
-		fmt.Println(err)
 		t.Fail()
 		return
 	}
+
 	mar, _ := json.Marshal(status)
 	fmt.Println(string(mar))
 }
 
 func TestSubmit(t *testing.T) {
-	sw := goseaweedfs.NewSeaweed("http", "localhost:8898", nil, 0, 2*time.Minute)
-
-	res, err := sw.Submit(SmallFile, "", "")
-	if err != nil {
-		fmt.Println(err)
-		t.Fail()
+	if sw == nil {
 		return
 	}
 
-	fmt.Println(res)
+	if SmallFile != "" {
+		res, err := sw.Submit(SmallFile, "", "")
+		if err != nil {
+			t.Fail()
+			return
+		}
+
+		fmt.Println(res)
+	}
 }
 
 func TestDeleteChunks(t *testing.T) {
-	sw := goseaweedfs.NewSeaweed("http", "localhost:8898", nil, 33554432, 2*time.Minute)
-
-	cm, fp, fID, err := sw.UploadFile(MediumFile, "", "")
-	if err != nil {
-		fmt.Println(err)
-		t.Fail()
+	if sw == nil {
 		return
 	}
-	fmt.Println(fp, fID)
-	fmt.Println(cm)
-	for _, v := range cm.Chunks {
-		fmt.Println(v)
-	}
 
-	err = sw.DeleteChunks(cm, nil)
-	if err != nil {
-		fmt.Println(err)
-		t.Fail()
-		return
+	if MediumFile != "" {
+		cm, fp, fID, err := sw.UploadFile(MediumFile, "", "")
+		if err != nil {
+			t.Fail()
+			return
+		}
+
+		fmt.Println(fp, fID)
+		fmt.Println(cm)
+		for _, v := range cm.Chunks {
+			fmt.Println(v)
+		}
+
+		err = sw.DeleteChunks(cm, nil)
+		if err != nil {
+			t.Fail()
+			return
+		}
 	}
 }

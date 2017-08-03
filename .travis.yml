@@ -1,0 +1,18 @@
+language: go
+
+go:
+- 1.8
+
+env:
+  global:
+  - GOSWFS_SMALL_FILE=$HOME/0.76.tar.gz
+
+before_script:
+- go get -u github.com/rancher/trash
+- mkdir -p $HOME/gopath/src/github.com/chrislusf/seaweedfs
+- wget https://github.com/chrislusf/seaweedfs/archive/0.76.tar.gz && tar xzf 0.76.tar.gz && mv seaweedfs-0.76/weed $HOME/gopath/src/github.com/chrislusf/seaweedfs/
+- cd $HOME/gopath/src/github.com/chrislusf/seaweedfs/weed && rm glide.yaml && trash -u && trash && go build && mv weed $HOME/
+- rm -rf $HOME/gopath/src/github.com/chrislusf
+- cd $HOME
+
+script: go test -v ./...
