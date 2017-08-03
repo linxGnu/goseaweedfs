@@ -143,7 +143,6 @@ func (c *HTTPClient) GetWithHeaders(fullURL string, headers map[string]string) (
 	return
 }
 
-// GetWithURL ...
 func (c *HTTPClient) GetWithURL(fullURL string) (respBody []byte, statusCode int, err error) {
 	defer func() {
 		if e := recover(); e != nil {

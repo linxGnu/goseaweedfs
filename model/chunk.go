@@ -8,14 +8,12 @@ import (
 	"sort"
 )
 
-// ChunkInfo ...
 type ChunkInfo struct {
 	Fid    string `json:"fid"`
 	Offset int64  `json:"offset"`
 	Size   int64  `json:"size"`
 }
 
-// ChunkManifest ...
 type ChunkManifest struct {
 	Name   string       `json:"name,omitempty"`
 	Mime   string       `json:"mime,omitempty"`
@@ -28,7 +26,7 @@ func (c *ChunkManifest) Marshal() ([]byte, error) {
 	return json.Marshal(c)
 }
 
-// UnGzipData ...
+// UnGzipData unzip data in form of stream/bytes
 func UnGzipData(input []byte) ([]byte, error) {
 	buf := bytes.NewBuffer(input)
 	r, _ := gzip.NewReader(buf)
@@ -37,7 +35,7 @@ func UnGzipData(input []byte) ([]byte, error) {
 	return output, err
 }
 
-// LoadChunkManifest ...
+// LoadChunkManifest load chunk manifest from bytes, support gzipped bytes
 func LoadChunkManifest(buffer []byte, isGzipped bool) (*ChunkManifest, error) {
 	if isGzipped {
 		var err error

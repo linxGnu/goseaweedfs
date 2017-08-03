@@ -5,7 +5,6 @@ import (
 	"math/rand"
 )
 
-// VolumeLocation ...
 type VolumeLocation struct {
 	URL       string `json:"url,omitempty"`
 	PublicURL string `json:"publicUrl,omitempty"`
@@ -32,7 +31,6 @@ func (c VolumeLocations) RandomPickForRead() *VolumeLocation {
 	return c[rand.Intn(len(c))]
 }
 
-// LookupResult ...
 type LookupResult struct {
 	VolumeID        string          `json:"volumeId,omitempty"`
 	VolumeLocations VolumeLocations `json:"locations,omitempty"`

@@ -7,26 +7,22 @@ import (
 	"github.com/linxGnu/goseaweedfs/libs"
 )
 
-// File ...
 type File struct {
 	FileID string `json:"fid"`
 	Name   string `json:"name"`
 }
 
-// Dir ...
 type Dir struct {
 	Path    string `json:"Directory"`
 	Files   []*File
 	Subdirs []*File `json:"Subdirectories"`
 }
 
-// Filer ...
 type Filer struct {
 	URL        string `json:"url"`
 	HTTPClient *libs.HTTPClient
 }
 
-// FilerUploadResult ...
 type FilerUploadResult struct {
 	Name    string `json:"name,omitempty"`
 	FileURL string `json:"url,omitempty"`
@@ -35,7 +31,7 @@ type FilerUploadResult struct {
 	Error   string `json:"error,omitempty"`
 }
 
-// NewFiler ...
+// NewFiler new filer with filer server's url
 func NewFiler(url string, httpClient *libs.HTTPClient) *Filer {
 	if !strings.HasPrefix(url, "http:") && !strings.HasPrefix(url, "https:") {
 		url = "http://" + url

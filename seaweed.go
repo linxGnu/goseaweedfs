@@ -67,7 +67,6 @@ const (
 	Param_Unmount_Volume_Volume     = "volume"
 )
 
-// Seaweed ...
 type Seaweed struct {
 	Master     string
 	Filers     []*model.Filer
@@ -174,7 +173,6 @@ func (c *Seaweed) doLookup(volID string, args url.Values) (result *model.LookupR
 	return
 }
 
-// LookupServerByFileID ...
 func (c *Seaweed) LookupServerByFileID(fileID string, args url.Values, readonly bool) (server string, err error) {
 	var parts []string
 	if strings.Contains(fileID, ",") {
@@ -366,7 +364,7 @@ func (c *Seaweed) Upload(fileReader io.Reader, fileName string, size int64, coll
 	return
 }
 
-// UploadFile ...
+// UploadFile upload file with full file dir/path
 func (c *Seaweed) UploadFile(filePath string, collection, ttl string) (cm *model.ChunkManifest, fp *model.FilePart, fileID string, err error) {
 	fp, err = model.NewFilePart(filePath)
 	if err != nil {
@@ -378,7 +376,7 @@ func (c *Seaweed) UploadFile(filePath string, collection, ttl string) (cm *model
 	return
 }
 
-// UploadFilePart ...
+// UploadFilePart upload a file part
 func (c *Seaweed) UploadFilePart(f *model.FilePart) (cm *model.ChunkManifest, fileID string, err error) {
 	if f.FileID == "" {
 		args := make(url.Values)
@@ -462,7 +460,7 @@ func (c *Seaweed) BatchUploadFiles(files []string, collection, ttl string) ([]*m
 	return c.BatchUploadFileParts(fps, collection, ttl)
 }
 
-// BatchUploadFileParts ...
+// BatchUploadFileParts upload multiple file parts at once
 func (c *Seaweed) BatchUploadFileParts(files []*model.FilePart, collection string, ttl string) ([]*model.SubmitResult, error) {
 	results := make([]*model.SubmitResult, len(files))
 	for index, file := range files {
@@ -525,7 +523,7 @@ func (c *Seaweed) Replace(fileID string, fileReader io.Reader, fileName string, 
 	return
 }
 
-// ReplaceFile ...
+// ReplaceFile replace file by fileID with local filePath
 func (c *Seaweed) ReplaceFile(fileID, filePath string, deleteFirst bool) error {
 	fp, e := model.NewFilePart(filePath)
 	if e != nil {
@@ -537,7 +535,7 @@ func (c *Seaweed) ReplaceFile(fileID, filePath string, deleteFirst bool) error {
 	return e
 }
 
-// ReplaceFilePart ...
+// ReplaceFilePart replace file part
 func (c *Seaweed) ReplaceFilePart(f *model.FilePart, deleteFirst bool) (fileID string, err error) {
 	if deleteFirst && f.FileID != "" {
 		c.DeleteFile(f.FileID, url.Values{Param_Collection: []string{f.Collection}})

@@ -9,7 +9,6 @@ import (
 	"strings"
 )
 
-// FilePart ...
 type FilePart struct {
 	Reader     io.Reader
 	FileName   string
@@ -32,7 +31,8 @@ type FilePart struct {
 	FileID string
 }
 
-// NewFilePartFromReader ...
+// NewFilePartFromReader new file part from file reader.
+// fileName and fileSize must be known
 func NewFilePartFromReader(reader io.Reader, fileName string, fileSize int64) *FilePart {
 	ret := FilePart{
 		Reader:   reader,
@@ -49,7 +49,7 @@ func NewFilePartFromReader(reader io.Reader, fileName string, fileSize int64) *F
 	return &ret
 }
 
-// NewFilePart ...
+// NewFilePart new file path from real file dir
 func NewFilePart(fullPathFilename string) (*FilePart, error) {
 	ret := FilePart{}
 

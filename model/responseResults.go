@@ -18,7 +18,6 @@ type AssignResult struct {
 	Error     string `json:"error,omitempty"`
 }
 
-// SubmitResult ...
 type SubmitResult struct {
 	FileName string `json:"fileName,omitempty"`
 	FileURL  string `json:"fileUrl,omitempty"`
@@ -27,28 +26,18 @@ type SubmitResult struct {
 	Error    string `json:"error,omitempty"`
 }
 
-// {
-//   "IsLeader": true,
-//   "Leader": "10.0.2.15:9333",
-//   "Peers": [
-//     "10.0.2.15:9334",
-//     "10.0.2.15:9335"
-//   ]
-// }
 type ClusterStatus struct {
 	IsLeader bool
 	Leader   string
 	Peers    []string
 }
 
-// SystemStatus ...
 type SystemStatus struct {
 	Topology Topology
 	Version  string
 	Error    string
 }
 
-// Topology ...
 type Topology struct {
 	DataCenters []*DataCenter
 	Free        int
@@ -56,21 +45,18 @@ type Topology struct {
 	Layouts     []*Layout
 }
 
-// DataCenter ...
 type DataCenter struct {
 	Free  int
 	Max   int
 	Racks []*Rack
 }
 
-// Rack ...
 type Rack struct {
 	DataNodes []*DataNode
 	Free      int
 	Max       int
 }
 
-// DataNode ...
 type DataNode struct {
 	Free      int
 	Max       int
@@ -79,7 +65,6 @@ type DataNode struct {
 	Volumes   int
 }
 
-// Layout ...
 type Layout struct {
 	Replication string
 	Writables   []uint64
