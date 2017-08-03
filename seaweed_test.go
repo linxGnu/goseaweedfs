@@ -8,8 +8,6 @@
 package goseaweedfs
 
 import (
-	"encoding/json"
-	"fmt"
 	"os"
 	"testing"
 	"time"
@@ -26,11 +24,13 @@ func init() {
 		if scheme == "" {
 			scheme = "http"
 		}
-		sw = NewSeaweed(scheme, []string{masterURL}, nil, 0, 2*time.Minute)
+		sw = NewSeaweed(scheme, []string{masterURL}, nil, 1024*1024*2, 5*time.Minute)
 	}
 
 	MediumFile = os.Getenv("GOSWFS_MEDIUM_FILE")
 	SmallFile = os.Getenv("GOSWFS_SMALL_FILE")
+
+	time.Sleep(5 * time.Second)
 }
 
 func TestUploadLookupserverReplaceDeleteFile(t *testing.T) {
@@ -43,43 +43,34 @@ func TestUploadLookupserverReplaceDeleteFile(t *testing.T) {
 	}
 
 	for i := 1; i <= 2; i++ {
-		_, fp, fID, err := sw.UploadFile(MediumFile, "", "")
+		_, _, fID, err := sw.UploadFile(MediumFile, "", "")
 		if err != nil {
 			t.Fail()
 			return
 		}
-		fmt.Println(fp, fID)
 
 		//
-		if server, err := sw.LookupServerByFileID(fID, nil, true); err != nil {
+		if _, err := sw.LookupServerByFileID(fID, nil, true); err != nil {
 			t.Fail()
 			return
-		} else {
-			fmt.Println(server)
 		}
 
 		//
-		if fullURL, err := sw.LookupFileID(fID, nil, true); err != nil {
+		if _, err := sw.LookupFileID(fID, nil, true); err != nil {
 			t.Fail()
 			return
-		} else {
-			fmt.Println(fullURL)
 		}
 
 		//
 		if err := sw.ReplaceFile(fID, SmallFile, false); err != nil {
 			t.Fail()
 			return
-		} else {
-			fmt.Println("Replaced:", fID)
 		}
 
 		//
 		if err := sw.ReplaceFile(fID, SmallFile, true); err != nil {
 			t.Fail()
 			return
-		} else {
-			fmt.Println("Replaced:", fID)
 		}
 
 		err = sw.DeleteFile(fID, nil)
@@ -143,14 +134,10 @@ func TestLookupVolumeIDs(t *testing.T) {
 		return
 	}
 
-	res, err := sw.LookupVolumeIDs([]string{"50", "51", "1"})
+	_, err := sw.LookupVolumeIDs([]string{"50", "51", "1"})
 	if err != nil {
 		t.Fail()
 		return
-	}
-
-	for k, v := range res {
-		fmt.Println(k, v)
 	}
 }
 
@@ -159,14 +146,11 @@ func TestStatus(t *testing.T) {
 		return
 	}
 
-	status, err := sw.Status()
+	_, err := sw.Status()
 	if err != nil {
 		t.Fail()
 		return
 	}
-
-	mar, _ := json.Marshal(status)
-	fmt.Println(string(mar))
 }
 
 func TestClusterStatus(t *testing.T) {
@@ -174,14 +158,11 @@ func TestClusterStatus(t *testing.T) {
 		return
 	}
 
-	status, err := sw.ClusterStatus()
+	_, err := sw.ClusterStatus()
 	if err != nil {
 		t.Fail()
 		return
 	}
-
-	mar, _ := json.Marshal(status)
-	fmt.Println(string(mar))
 }
 
 func TestSubmit(t *testing.T) {
@@ -190,13 +171,11 @@ func TestSubmit(t *testing.T) {
 	}
 
 	if SmallFile != "" {
-		res, err := sw.Submit(SmallFile, "", "")
+		_, err := sw.Submit(SmallFile, "", "")
 		if err != nil {
 			t.Fail()
 			return
 		}
-
-		fmt.Println(res)
 	}
 }
 
@@ -206,16 +185,10 @@ func TestDeleteChunks(t *testing.T) {
 	}
 
 	if MediumFile != "" {
-		cm, fp, fID, err := sw.UploadFile(MediumFile, "", "")
+		cm, _, _, err := sw.UploadFile(MediumFile, "", "")
 		if err != nil {
 			t.Fail()
 			return
-		}
-
-		fmt.Println(fp, fID)
-		fmt.Println(cm)
-		for _, v := range cm.Chunks {
-			fmt.Println(v)
 		}
 
 		err = sw.DeleteChunks(cm, nil)
