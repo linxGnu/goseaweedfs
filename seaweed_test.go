@@ -39,7 +39,7 @@ func init() {
 	MediumFile = os.Getenv("GOSWFS_MEDIUM_FILE")
 	SmallFile = os.Getenv("GOSWFS_SMALL_FILE")
 
-	// time.Sleep(10 * time.Second)
+	time.Sleep(10 * time.Second)
 }
 
 func TestUploadLookupserverReplaceDeleteFile(t *testing.T) {
