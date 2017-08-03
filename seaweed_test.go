@@ -8,6 +8,8 @@
 package goseaweedfs
 
 import (
+	"fmt"
+	"math/rand"
 	"os"
 	"testing"
 	"time"
@@ -24,59 +26,91 @@ func init() {
 		if scheme == "" {
 			scheme = "http"
 		}
-		sw = NewSeaweed(scheme, []string{masterURL}, nil, 1024*1024*2, 5*time.Minute)
+		sw = NewSeaweed(scheme, []string{masterURL}, nil, 2*1024*1024, 5*time.Minute)
 	}
 
 	MediumFile = os.Getenv("GOSWFS_MEDIUM_FILE")
 	SmallFile = os.Getenv("GOSWFS_SMALL_FILE")
 
-	time.Sleep(5 * time.Second)
+	time.Sleep(3 * time.Second)
 }
 
 func TestUploadLookupserverReplaceDeleteFile(t *testing.T) {
-	if sw == nil {
-		return
-	}
-
-	if MediumFile == "" {
+	if sw == nil || MediumFile == "" {
 		return
 	}
 
 	for i := 1; i <= 2; i++ {
 		_, _, fID, err := sw.UploadFile(MediumFile, "", "")
 		if err != nil {
-			t.Fail()
-			return
+			t.Fatal(err)
 		}
 
 		//
 		if _, err := sw.LookupServerByFileID(fID, nil, true); err != nil {
-			t.Fail()
-			return
+			t.Fatal(err)
 		}
 
 		//
 		if _, err := sw.LookupFileID(fID, nil, true); err != nil {
-			t.Fail()
-			return
+			t.Fatal(err)
 		}
 
 		//
 		if err := sw.ReplaceFile(fID, SmallFile, false); err != nil {
-			t.Fail()
+			t.Fatal(err)
 			return
 		}
 
 		//
 		if err := sw.ReplaceFile(fID, SmallFile, true); err != nil {
-			t.Fail()
+			t.Fatal(err)
 			return
 		}
 
-		err = sw.DeleteFile(fID, nil)
-		if err != nil {
-			t.Fail()
+		if err = sw.DeleteFile(fID, nil); err != nil {
+			t.Fatal(err)
 			return
+		}
+
+		// test upload file
+		fh, err := os.Open(MediumFile)
+		if err != nil {
+			t.Fatal(err)
+		}
+		defer fh.Close()
+
+		var size int64
+		if fi, fiErr := fh.Stat(); fiErr != nil {
+			t.Fatal(fiErr)
+		} else {
+			size = fi.Size()
+		}
+
+		if _, fID, err = sw.Upload(fh, "test.txt", size, "col", ""); err != nil {
+			t.Fatal(err)
+		}
+
+		// Replace with small file
+		fs, err := os.Open(SmallFile)
+		if err != nil {
+			t.Fatal(err)
+		}
+		defer fs.Close()
+		if fi, fiErr := fs.Stat(); fiErr != nil {
+			t.Fatal(fiErr)
+		} else {
+			size = fi.Size()
+		}
+
+		if err := sw.Replace(fID, fs, "ta.txt", size, "", "", false); err != nil {
+			t.Fatal(err)
+			return
+		}
+
+		// finally delete
+		if err = sw.DeleteFile(fID, nil); err != nil {
+			t.Fatal(err)
 		}
 	}
 }
@@ -89,31 +123,18 @@ func TestBatchUploadFiles(t *testing.T) {
 	if MediumFile != "" && SmallFile != "" {
 		_, err := sw.BatchUploadFiles([]string{MediumFile, SmallFile}, "", "")
 		if err != nil {
-			t.Fail()
-			return
+			t.Fatal(err)
 		}
 	} else if MediumFile != "" {
 		_, err := sw.BatchUploadFiles([]string{MediumFile, MediumFile}, "", "")
 		if err != nil {
-			t.Fail()
-			return
+			t.Fatal(err)
 		}
 	} else if SmallFile != "" {
 		_, err := sw.BatchUploadFiles([]string{SmallFile, SmallFile}, "", "")
 		if err != nil {
-			t.Fail()
-			return
+			t.Fatal(err)
 		}
-	}
-}
-
-func TestGrow(t *testing.T) {
-	if sw == nil {
-		return
-	}
-
-	if err := sw.Grow(12, "imgs", "000", "dc1"); err != nil {
-		t.Fail()
 	}
 }
 
@@ -124,9 +145,23 @@ func TestLookup(t *testing.T) {
 
 	_, err := sw.Lookup("1", nil)
 	if err != nil {
-		t.Fail()
+		t.Fatal(err)
+	}
+
+	_, err = sw.LookupNoCache("1", nil)
+	if err != nil {
+		t.Fatal(err)
+	}
+}
+
+func TestGrowAndGC(t *testing.T) {
+	if sw == nil {
 		return
 	}
+
+	fmt.Println(sw.Grow(50+rand.Int()%14, "imgs", "000", "dc1"))
+
+	sw.GC(1024 * 1024)
 }
 
 func TestLookupVolumeIDs(t *testing.T) {
@@ -134,10 +169,8 @@ func TestLookupVolumeIDs(t *testing.T) {
 		return
 	}
 
-	_, err := sw.LookupVolumeIDs([]string{"50", "51", "1"})
-	if err != nil {
-		t.Fail()
-		return
+	if _, err := sw.LookupVolumeIDs([]string{"50", "51", "1"}); err != nil {
+		t.Fatal(err)
 	}
 }
 
@@ -146,10 +179,8 @@ func TestStatus(t *testing.T) {
 		return
 	}
 
-	_, err := sw.Status()
-	if err != nil {
-		t.Fail()
-		return
+	if _, err := sw.Status(); err != nil {
+		t.Fatal(err)
 	}
 }
 
@@ -160,7 +191,7 @@ func TestClusterStatus(t *testing.T) {
 
 	_, err := sw.ClusterStatus()
 	if err != nil {
-		t.Fail()
+		t.Fatal(err)
 		return
 	}
 }
@@ -171,9 +202,8 @@ func TestSubmit(t *testing.T) {
 	}
 
 	if SmallFile != "" {
-		_, err := sw.Submit(SmallFile, "", "")
-		if err != nil {
-			t.Fail()
+		if _, err := sw.Submit(SmallFile, "", ""); err != nil {
+			t.Fatal(err)
 			return
 		}
 	}
@@ -187,14 +217,11 @@ func TestDeleteChunks(t *testing.T) {
 	if MediumFile != "" {
 		cm, _, _, err := sw.UploadFile(MediumFile, "", "")
 		if err != nil {
-			t.Fail()
-			return
+			t.Fatal(err)
 		}
 
-		err = sw.DeleteChunks(cm, nil)
-		if err != nil {
-			t.Fail()
-			return
+		if err = sw.DeleteChunks(cm, nil); err != nil {
+			t.Fatal(err)
 		}
 	}
 }

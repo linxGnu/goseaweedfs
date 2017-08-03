@@ -2,23 +2,21 @@ package goseaweedfs
 
 import (
 	"github.com/linxGnu/goseaweedfs/libs"
-	"github.com/linxGnu/goseaweedfs/libs/cache"
 	"github.com/linxGnu/goseaweedfs/model"
 
 	"bytes"
-	"compress/gzip"
 	"encoding/json"
 	"errors"
 	"fmt"
 	"io"
-	"io/ioutil"
 	"net/url"
 	"path"
-	"sort"
 	"strconv"
 	"strings"
 	"sync"
 	"time"
+
+	cache "github.com/patrickmn/go-cache"
 )
 
 var (
@@ -68,36 +66,6 @@ const (
 	Param_Mount_Volume_Volume       = "volume"
 	Param_Unmount_Volume_Volume     = "volume"
 )
-
-// UnGzipData ...
-func UnGzipData(input []byte) ([]byte, error) {
-	buf := bytes.NewBuffer(input)
-	r, _ := gzip.NewReader(buf)
-	defer r.Close()
-	output, err := ioutil.ReadAll(r)
-	return output, err
-}
-
-// LoadChunkManifest ...
-func LoadChunkManifest(buffer []byte, isGzipped bool) (*model.ChunkManifest, error) {
-	if isGzipped {
-		var err error
-		if buffer, err = UnGzipData(buffer); err != nil {
-			return nil, err
-		}
-	}
-
-	cm := model.ChunkManifest{}
-	if e := json.Unmarshal(buffer, &cm); e != nil {
-		return nil, e
-	}
-
-	sort.Slice(cm.Chunks, func(i, j int) bool {
-		return cm.Chunks[i].Offset < cm.Chunks[j].Offset
-	})
-
-	return &cm, nil
-}
 
 // Seaweed ...
 type Seaweed struct {
