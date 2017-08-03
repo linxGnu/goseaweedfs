@@ -105,6 +105,44 @@ func (c *HTTPClient) Get(scheme, host, path string, values url.Values) (respBody
 	return c.GetWithURL(MakeURL(scheme, host, path, values))
 }
 
+// GetWithHeaders do get with customer headers
+func (c *HTTPClient) GetWithHeaders(fullURL string, headers map[string]string) (respBody []byte, statusCode int, err error) {
+	defer func() {
+		if e := recover(); e != nil {
+			err = fmt.Errorf("%v", e)
+		}
+	}()
+
+	req, err := http.NewRequest("GET", fullURL, nil)
+	if err != nil {
+		err = fmt.Errorf("Get %s: %v", fullURL, err)
+		return
+	}
+	if headers != nil {
+		for k, v := range headers {
+			req.Header.Set(k, v)
+		}
+	}
+
+	r, e := c.Client.Do(req)
+	if e != nil {
+		err = fmt.Errorf("Delete %s: %v", fullURL, e)
+		return
+	}
+	defer r.Body.Close()
+
+	statusCode = r.StatusCode
+
+	body, e := ioutil.ReadAll(r.Body)
+	if e != nil {
+		err = fmt.Errorf("Delete %s: %v", fullURL, e)
+		return
+	}
+	respBody = body
+
+	return
+}
+
 // GetWithURL ...
 func (c *HTTPClient) GetWithURL(fullURL string) (respBody []byte, statusCode int, err error) {
 	defer func() {

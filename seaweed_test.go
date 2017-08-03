@@ -4,6 +4,7 @@
 //  * GOSWFS_SCHEME
 //	* GOSWFS_MEDIUM_FILE
 //	* GOSWFS_SMALL_FILE
+//  * GOSWFS_FILER_URL
 //
 package goseaweedfs
 
@@ -26,13 +27,19 @@ func init() {
 		if scheme == "" {
 			scheme = "http"
 		}
-		sw = NewSeaweed(scheme, []string{masterURL}, nil, 2*1024*1024, 5*time.Minute)
+
+		var filer []string
+		if _filer := os.Getenv("GOSWFS_FILER_URL"); _filer != "" {
+			filer = []string{_filer}
+		}
+
+		sw = NewSeaweed(scheme, masterURL, filer, 2*1024*1024, 5*time.Minute)
 	}
 
 	MediumFile = os.Getenv("GOSWFS_MEDIUM_FILE")
 	SmallFile = os.Getenv("GOSWFS_SMALL_FILE")
 
-	time.Sleep(10 * time.Second)
+	// time.Sleep(10 * time.Second)
 }
 
 func TestUploadLookupserverReplaceDeleteFile(t *testing.T) {
@@ -221,6 +228,45 @@ func TestDeleteChunks(t *testing.T) {
 		}
 
 		if err = sw.DeleteChunks(cm, nil); err != nil {
+			t.Fatal(err)
+		}
+	}
+}
+
+func TestFiler(t *testing.T) {
+	if sw == nil || sw.Filers == nil || len(sw.Filers) == 0 {
+		return
+	}
+
+	//
+	filer := sw.Filers[0]
+	if uploadResult, err := filer.UploadFile(SmallFile, "/js/test.txt", "", ""); err != nil {
+		t.Fatal(err)
+	} else {
+		fmt.Println(uploadResult)
+	}
+
+	if dir, err := filer.Dir("/js"); err != nil {
+		t.Fatal(err)
+	} else {
+		if dir.Files == nil || len(dir.Files) == 0 {
+			t.Fatal(fmt.Errorf("Directory js contains no file"))
+		}
+
+		// check directory
+		contain := false
+		for _, v := range dir.Files {
+			if v.Name == "test.txt" {
+				contain = true
+				break
+			}
+		}
+		if !contain {
+			t.Fatal(fmt.Errorf("Directory js does not contain test.txt"))
+		}
+
+		// try to delete this file
+		if err := filer.Delete("/js/test.txt"); err != nil {
 			t.Fatal(err)
 		}
 	}

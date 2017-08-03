@@ -56,7 +56,7 @@ func (f *Filer) Dir(pathname string) (result *Dir, err error) {
 		pathname = pathname + "/"
 	}
 
-	data, _, err := f.HTTPClient.GetWithURL(f.URL + pathname)
+	data, _, err := f.HTTPClient.GetWithHeaders(f.URL+pathname, map[string]string{"Accept": "application/json"})
 	if err != nil {
 		return nil, err
 	}
@@ -70,7 +70,7 @@ func (f *Filer) Dir(pathname string) (result *Dir, err error) {
 }
 
 // UploadFile a file
-func (f *Filer) UploadFile(filePath string, collection, ttl string) (result *FilerUploadResult, err error) {
+func (f *Filer) UploadFile(filePath, newFilerPath, collection, ttl string) (result *FilerUploadResult, err error) {
 	fp, err := NewFilePart(filePath)
 	if err != nil {
 		return
@@ -78,11 +78,11 @@ func (f *Filer) UploadFile(filePath string, collection, ttl string) (result *Fil
 	fp.Collection = collection
 	fp.Ttl = ttl
 
-	if !strings.HasPrefix(filePath, "/") {
-		filePath = "/" + filePath
+	if !strings.HasPrefix(newFilerPath, "/") {
+		newFilerPath = "/" + newFilerPath
 	}
 
-	data, _, err := f.HTTPClient.Upload(f.URL+filePath, fp.FileName, fp.Reader, fp.IsGzipped, fp.MimeType)
+	data, _, err := f.HTTPClient.Upload(f.URL+newFilerPath, filePath, fp.Reader, fp.IsGzipped, fp.MimeType)
 	if err != nil {
 		return
 	}

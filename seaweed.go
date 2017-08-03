@@ -69,7 +69,7 @@ const (
 
 // Seaweed ...
 type Seaweed struct {
-	Master     []string
+	Master     string
 	Filers     []*model.Filer
 	Scheme     string
 	ChunkSize  int64
@@ -78,11 +78,7 @@ type Seaweed struct {
 }
 
 // NewSeaweed create new seaweed with default
-func NewSeaweed(scheme string, master []string, filers []string, chunkSize int64, timeout time.Duration) *Seaweed {
-	if master == nil || len(master) == 0 {
-		return nil
-	}
-
+func NewSeaweed(scheme string, master string, filers []string, chunkSize int64, timeout time.Duration) *Seaweed {
 	res := &Seaweed{
 		Master:     master,
 		Scheme:     scheme,
@@ -121,7 +117,7 @@ func (c *Seaweed) Grow(count int, collection, replication, dataCenter string) er
 
 // GrowArgs pre-Allocate volumes with args
 func (c *Seaweed) GrowArgs(args url.Values) (err error) {
-	_, _, err = c.HTTPClient.Get(c.Scheme, c.Master[0], "/vol/grow", args)
+	_, _, err = c.HTTPClient.Get(c.Scheme, c.Master, "/vol/grow", args)
 	return
 }
 
@@ -160,7 +156,7 @@ func (c *Seaweed) doLookup(volID string, args url.Values) (result *model.LookupR
 	}
 	args.Set(Param_Lookup_VolumeId, volID)
 
-	jsonBlob, _, err := c.HTTPClient.PostForm(libs.MakeURL(c.Scheme, c.Master[0], "/dir/lookup", nil), args)
+	jsonBlob, _, err := c.HTTPClient.PostForm(libs.MakeURL(c.Scheme, c.Master, "/dir/lookup", nil), args)
 	if err != nil {
 		return nil, err
 	}
@@ -248,7 +244,7 @@ func (c *Seaweed) LookupVolumeIDs(volIDs []string) (result map[string]*model.Loo
 		args.Add("volumeId", unknownVolIDs[i])
 	}
 
-	jsonBlob, _, err := c.HTTPClient.PostForm(libs.MakeURL(c.Scheme, c.Master[0], "/vol/lookup", nil), args)
+	jsonBlob, _, err := c.HTTPClient.PostForm(libs.MakeURL(c.Scheme, c.Master, "/vol/lookup", nil), args)
 	if err != nil {
 		return
 	}
@@ -273,7 +269,7 @@ func (c *Seaweed) GC(threshold float64) (err error) {
 		"garbageThreshold": []string{strconv.FormatFloat(threshold, 'f', -1, 64)},
 	}
 
-	if _, _, err = c.HTTPClient.Get(c.Scheme, c.Master[0], "/vol/vacuum", args); err != nil {
+	if _, _, err = c.HTTPClient.Get(c.Scheme, c.Master, "/vol/vacuum", args); err != nil {
 		// TODO: handle response later
 		return
 	}
@@ -283,7 +279,7 @@ func (c *Seaweed) GC(threshold float64) (err error) {
 
 // Status check System Status
 func (c *Seaweed) Status() (result *model.SystemStatus, err error) {
-	data, _, err := c.HTTPClient.Get(c.Scheme, c.Master[0], "/dir/status", nil)
+	data, _, err := c.HTTPClient.Get(c.Scheme, c.Master, "/dir/status", nil)
 	if err != nil {
 		return
 	}
@@ -298,7 +294,7 @@ func (c *Seaweed) Status() (result *model.SystemStatus, err error) {
 
 // ClusterStatus get cluster status
 func (c *Seaweed) ClusterStatus() (result *model.ClusterStatus, err error) {
-	data, _, err := c.HTTPClient.Get(c.Scheme, c.Master[0], "/cluster/status", nil)
+	data, _, err := c.HTTPClient.Get(c.Scheme, c.Master, "/cluster/status", nil)
 	if err != nil {
 		return
 	}
@@ -317,7 +313,7 @@ func (c *Seaweed) Assign(args url.Values) (result *model.AssignResult, err error
 		args = make(url.Values)
 	}
 
-	jsonBlob, _, err := c.HTTPClient.PostForm(libs.MakeURL(c.Scheme, c.Master[0], "/dir/assign", nil), args)
+	jsonBlob, _, err := c.HTTPClient.PostForm(libs.MakeURL(c.Scheme, c.Master, "/dir/assign", nil), args)
 	if err != nil {
 		return nil, err
 	}
@@ -348,7 +344,7 @@ func (c *Seaweed) Submit(filePath string, collection, ttl string) (result *model
 
 // SubmitFilePart directly to master
 func (c *Seaweed) SubmitFilePart(f *model.FilePart, args url.Values) (result *model.SubmitResult, err error) {
-	data, _, err := c.HTTPClient.Upload(libs.MakeURL(c.Scheme, c.Master[0], "/submit", args), f.FileName, f.Reader, f.IsGzipped, f.MimeType)
+	data, _, err := c.HTTPClient.Upload(libs.MakeURL(c.Scheme, c.Master, "/submit", args), f.FileName, f.Reader, f.IsGzipped, f.MimeType)
 	if err != nil {
 		return
 	}
