@@ -1,4 +1,4 @@
-package model
+package goseaweedfs
 
 import (
 	"bytes"
@@ -6,15 +6,17 @@ import (
 	"encoding/json"
 	"fmt"
 	"testing"
+
+	"github.com/linxGnu/goseaweedfs/model"
 )
 
 func TestUnzipAndLoading(t *testing.T) {
-	cm1 := &ChunkManifest{
+	cm1 := &model.ChunkManifest{
 		Mime: "images_test",
 		Name: "test.txt",
 		Size: 12345,
-		Chunks: []*ChunkInfo{
-			&ChunkInfo{
+		Chunks: []*model.ChunkInfo{
+			&model.ChunkInfo{
 				Fid:    "abc",
 				Offset: 2,
 				Size:   3,
@@ -30,7 +32,7 @@ func TestUnzipAndLoading(t *testing.T) {
 	writer.Close()
 
 	// try to load chunk manifest
-	cm2, err := LoadChunkManifest(b.Bytes(), true)
+	cm2, err := model.LoadChunkManifest(b.Bytes(), true)
 	if err != nil {
 		fmt.Println(err)
 		t.Fatal(err)
