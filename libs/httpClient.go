@@ -204,7 +204,7 @@ func (c *HTTPClient) Delete(url string) (statusCode int, err error) {
 
 	m := make(map[string]interface{})
 	if e := json.Unmarshal(body, &m); e == nil {
-		if s, ok := m["error"].(string); ok { // check error occured
+		if s, ok := m["error"].(string); ok {
 			err = fmt.Errorf("Delete %s: %v", url, s)
 			return
 		}
