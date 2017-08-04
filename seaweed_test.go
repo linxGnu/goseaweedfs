@@ -1,9 +1,9 @@
 // The following environment variables, if set, will be used:
 //
-//	* GOSWFS_MASTER_URL
+//  * GOSWFS_MASTER_URL
 //  * GOSWFS_SCHEME
-//	* GOSWFS_MEDIUM_FILE
-//	* GOSWFS_SMALL_FILE
+//  * GOSWFS_MEDIUM_FILE
+//  * GOSWFS_SMALL_FILE
 //  * GOSWFS_FILER_URL
 //
 package goseaweedfs
