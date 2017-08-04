@@ -316,7 +316,7 @@ func TestUnzipAndLoading(t *testing.T) {
 		Name: "test.txt",
 		Size: 12345,
 		Chunks: []*model.ChunkInfo{
-			&model.ChunkInfo{
+			{
 				Fid:    "abc",
 				Offset: 2,
 				Size:   3,
