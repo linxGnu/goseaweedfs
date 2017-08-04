@@ -27,46 +27,69 @@ var (
 )
 
 const (
-	Param_Collection = "collection"
-	Param_TTL        = "ttl"
-	Param_Count      = "count"
+	// ParamCollection http param to specify collection which files belong. According to SeaweedFS API.
+	ParamCollection = "collection"
 
-	Param_Assign_Replication = "replication" // To assign with a specific replication type
-	Param_Assign_Count       = "count"       // To specify how many file ids to reserve
-	Param_AssignDataCenter   = "dataCenter"  // To assign a specific data center
+	// ParamTTL http param to specify time to live. According to SeaweedFS API.
+	ParamTTL = "ttl"
 
-	Param_Lookup_VolumeId   = "volumeId"   // Volume ID to look up
-	Param_Lookup_Pretty     = "pretty"     // json response should be prettified or not. Default should not be set.
-	Param_Lookup_Collection = "collection" // If you know the collection, specify it since it will be a little faster
+	// ParamCount http param to specify how many file ids to reserve. According to SeaweedFS API.
+	ParamCount = "count"
 
-	// If your system has many deletions, the deleted file's disk space will not be synchronously re-claimed.
+	// ParamAssignReplication http param to assign files with a specific replication type.
+	ParamAssignReplication = "replication"
+
+	// ParamAssignCount http param to specify how many file ids to reserve.
+	ParamAssignCount = "count"
+
+	// ParamAssignDataCenter http param to assign a specific data center
+	ParamAssignDataCenter = "dataCenter"
+
+	// ParamLookupVolumeID http param to specify volume ID for looking up.
+	ParamLookupVolumeID = "volumeId"
+
+	// ParamLookupPretty http param to make json response prettified or not. Default should not be set.
+	ParamLookupPretty = "pretty"
+
+	// ParamLookupCollection http param to specify known collection, this would make file look up/search faster.
+	ParamLookupCollection = "collection"
+
+	// ParamVacuumGarbageThreshold if your system has many deletions, the deleted file's disk space will not be synchronously re-claimed.
 	// There is a background job to check volume disk usage. If empty space is more than the threshold,
 	// default to 0.3, the vacuum job will make the volume readonly, create a new volume with only existing files,
 	// and switch on the new volume. If you are impatient or doing some testing, vacuum the unused spaces this way.
-	Param_Vacuum_GarbageThreshold = "GarbageThreshold"
+	ParamVacuumGarbageThreshold = "GarbageThreshold"
 
-	Param_Grow_Replication = "replication" // specify a specific replication
-	Param_Grow_Count       = "count"       // number of empty volume to grow
-	Param_Grow_DataCenter  = "dataCenter"  // specify data center
-	Param_Grow_Collection  = "collection"
+	// ParamGrowReplication http param to specify a specific replication.
+	ParamGrowReplication = "replication"
 
-	// Ttl Time to live.
+	// ParamGrowCount http param to specify number of empty volume to grow.
+	ParamGrowCount = "count"
+
+	// ParamGrowDataCenter http param to specify datacenter of growing volume.
+	ParamGrowDataCenter = "dataCenter"
+
+	// ParamGrowCollection http param to specify collection of files for growing.
+	ParamGrowCollection = "collection"
+
+	// ParamGrowTTL specify time to live for growing api. Refers to: https://github.com/chrislusf/seaweedfs/wiki/Store-file-with-a-Time-To-Live
 	// 3m: 3 minutes
 	// 4h: 4 hours
 	// 5d: 5 days
 	// 6w: 6 weeks
 	// 7M: 7 months
 	// 8y: 8 years
-	Param_Grow_TTL = "ttl" // specify time to live. Refers to: https://github.com/chrislusf/seaweedfs/wiki/Store-file-with-a-Time-To-Live
+	ParamGrowTTL = "ttl"
 
 	// admin operations
-	Param_Assign_Volume_Replication = "replication"
-	Param_Assign_Volume_Volume      = "volume"
-	Param_Delete_Volume_Volume      = "volume"
-	Param_Mount_Volume_Volume       = "volume"
-	Param_Unmount_Volume_Volume     = "volume"
+	// ParamAssignVolumeReplication = "replication"
+	// ParamAssignVolume            = "volume"
+	// ParamDeleteVolume            = "volume"
+	// ParamMountVolume             = "volume"
+	// ParamUnmountVolume           = "volume"
 )
 
+// Seaweed client containing almost features/operations to interact with SeaweedFS
 type Seaweed struct {
 	Master     string
 	Filers     []*model.Filer
@@ -99,16 +122,16 @@ func NewSeaweed(scheme string, master string, filers []string, chunkSize int64, 
 func (c *Seaweed) Grow(count int, collection, replication, dataCenter string) error {
 	args := url.Values{}
 	if count > 0 {
-		args.Set(Param_Grow_Count, strconv.Itoa(count))
+		args.Set(ParamGrowCount, strconv.Itoa(count))
 	}
 	if collection != "" {
-		args.Set(Param_Grow_Collection, collection)
+		args.Set(ParamGrowCollection, collection)
 	}
 	if replication != "" {
-		args.Set(Param_Grow_Replication, replication)
+		args.Set(ParamGrowReplication, replication)
 	}
 	if dataCenter != "" {
-		args.Set(Param_Grow_DataCenter, dataCenter)
+		args.Set(ParamGrowDataCenter, dataCenter)
 	}
 
 	return c.GrowArgs(args)
@@ -153,7 +176,7 @@ func (c *Seaweed) doLookup(volID string, args url.Values) (result *model.LookupR
 	if args == nil {
 		args = make(url.Values)
 	}
-	args.Set(Param_Lookup_VolumeId, volID)
+	args.Set(ParamLookupVolumeID, volID)
 
 	jsonBlob, _, err := c.HTTPClient.PostForm(libs.MakeURL(c.Scheme, c.Master, "/dir/lookup", nil), args)
 	if err != nil {
@@ -173,6 +196,7 @@ func (c *Seaweed) doLookup(volID string, args url.Values) (result *model.LookupR
 	return
 }
 
+// LookupServerByFileID lookup server by fileID
 func (c *Seaweed) LookupServerByFileID(fileID string, args url.Values, readonly bool) (server string, err error) {
 	var parts []string
 	if strings.Contains(fileID, ",") {
@@ -335,7 +359,7 @@ func (c *Seaweed) Submit(filePath string, collection, ttl string) (result *model
 		return
 	}
 	fp.Collection = collection
-	fp.Ttl = ttl
+	fp.TTL = ttl
 
 	return c.SubmitFilePart(fp, url.Values{})
 }
@@ -358,7 +382,7 @@ func (c *Seaweed) SubmitFilePart(f *model.FilePart, args url.Values) (result *mo
 // Upload file by reader
 func (c *Seaweed) Upload(fileReader io.Reader, fileName string, size int64, collection, ttl string) (fp *model.FilePart, fileID string, err error) {
 	fp = model.NewFilePartFromReader(fileReader, fileName, size)
-	fp.Collection, fp.Ttl = collection, ttl
+	fp.Collection, fp.TTL = collection, ttl
 
 	_, fileID, err = c.UploadFilePart(fp)
 	return
@@ -370,7 +394,7 @@ func (c *Seaweed) UploadFile(filePath string, collection, ttl string) (cm *model
 	if err != nil {
 		return
 	}
-	fp.Collection, fp.Ttl = collection, ttl
+	fp.Collection, fp.TTL = collection, ttl
 
 	cm, fileID, err = c.UploadFilePart(fp)
 	return
@@ -381,12 +405,12 @@ func (c *Seaweed) UploadFilePart(f *model.FilePart) (cm *model.ChunkManifest, fi
 	if f.FileID == "" {
 		args := make(url.Values)
 		if f.Collection != "" {
-			args.Set(Param_Collection, f.Collection)
+			args.Set(ParamCollection, f.Collection)
 		}
-		if f.Ttl != "" {
-			args.Set(Param_TTL, f.Ttl)
+		if f.TTL != "" {
+			args.Set(ParamTTL, f.TTL)
 		}
-		args.Set(Param_Assign_Count, "1")
+		args.Set(ParamAssignCount, "1")
 
 		res, err := c.Assign(args)
 		if err != nil {
@@ -396,7 +420,7 @@ func (c *Seaweed) UploadFilePart(f *model.FilePart) (cm *model.ChunkManifest, fi
 	}
 
 	if f.Server == "" {
-		if f.Server, err = c.LookupServerByFileID(f.FileID, url.Values{Param_Collection: []string{f.Collection}}, false); err != nil {
+		if f.Server, err = c.LookupServerByFileID(f.FileID, url.Values{ParamCollection: []string{f.Collection}}, false); err != nil {
 			return
 		}
 	}
@@ -415,7 +439,7 @@ func (c *Seaweed) UploadFilePart(f *model.FilePart) (cm *model.ChunkManifest, fi
 			Mime:   f.MimeType,
 			Chunks: make([]*model.ChunkInfo, chunks),
 		}
-		args := url.Values{Param_Collection: []string{f.Collection}}
+		args := url.Values{ParamCollection: []string{f.Collection}}
 
 		for i := int64(0); i < chunks; i++ {
 			_, id, count, e := c.uploadChunk(f, baseName+"_"+strconv.FormatInt(i+1, 10))
@@ -471,12 +495,12 @@ func (c *Seaweed) BatchUploadFileParts(files []*model.FilePart, collection strin
 
 	args := make(url.Values)
 	if collection != "" {
-		args.Set(Param_Collection, collection)
+		args.Set(ParamCollection, collection)
 	}
 	if ttl != "" {
-		args.Set(Param_TTL, ttl)
+		args.Set(ParamTTL, ttl)
 	}
-	args.Set(Param_Assign_Count, strconv.Itoa(len(files)))
+	args.Set(ParamAssignCount, strconv.Itoa(len(files)))
 
 	ret, err := c.Assign(args)
 	if err != nil {
@@ -516,7 +540,7 @@ func (c *Seaweed) BatchUploadFileParts(files []*model.FilePart, collection strin
 // Replace with file reader
 func (c *Seaweed) Replace(fileID string, fileReader io.Reader, fileName string, size int64, collection, ttl string, deleteFirst bool) (err error) {
 	fp := model.NewFilePartFromReader(fileReader, fileName, size)
-	fp.Collection, fp.Ttl = collection, ttl
+	fp.Collection, fp.TTL = collection, ttl
 	fp.FileID = fileID
 
 	_, err = c.ReplaceFilePart(fp, deleteFirst)
@@ -538,7 +562,7 @@ func (c *Seaweed) ReplaceFile(fileID, filePath string, deleteFirst bool) error {
 // ReplaceFilePart replace file part
 func (c *Seaweed) ReplaceFilePart(f *model.FilePart, deleteFirst bool) (fileID string, err error) {
 	if deleteFirst && f.FileID != "" {
-		c.DeleteFile(f.FileID, url.Values{Param_Collection: []string{f.Collection}})
+		c.DeleteFile(f.FileID, url.Values{ParamCollection: []string{f.Collection}})
 	}
 
 	_, fileID, err = c.UploadFilePart(f)
@@ -548,9 +572,9 @@ func (c *Seaweed) ReplaceFilePart(f *model.FilePart, deleteFirst bool) (fileID s
 func (c *Seaweed) uploadChunk(f *model.FilePart, filename string) (assignResult *model.AssignResult, fileID string, size int64, err error) {
 	// Assign first to get file id and url for uploading
 	assignResult, err = c.Assign(url.Values{
-		Param_Collection:   []string{f.Collection},
-		Param_TTL:          []string{f.Ttl},
-		Param_Assign_Count: []string{"1"},
+		ParamCollection:  []string{f.Collection},
+		ParamTTL:         []string{f.TTL},
+		ParamAssignCount: []string{"1"},
 	})
 	if err != nil {
 		return

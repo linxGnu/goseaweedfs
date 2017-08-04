@@ -9,6 +9,7 @@ import (
 	"strings"
 )
 
+// FilePart file wrapper with reader and some metadata
 type FilePart struct {
 	Reader     io.Reader
 	FileName   string
@@ -18,14 +19,14 @@ type FilePart struct {
 	ModTime    int64 //in seconds
 	Collection string
 
-	// Ttl Time to live.
+	// TTL Time to live.
 	// 3m: 3 minutes
 	// 4h: 4 hours
 	// 5d: 5 days
 	// 6w: 6 weeks
 	// 7M: 7 months
 	// 8y: 8 years
-	Ttl string
+	TTL string
 
 	Server string
 	FileID string
@@ -60,11 +61,11 @@ func NewFilePart(fullPathFilename string) (*FilePart, error) {
 	ret.Reader = fh
 	ret.FileName = filepath.Base(fullPathFilename)
 
-	if fi, fiErr := fh.Stat(); fiErr != nil {
-		return nil, fiErr
-	} else {
+	if fi, fiErr := fh.Stat(); fiErr == nil {
 		ret.ModTime = fi.ModTime().UTC().Unix()
 		ret.FileSize = fi.Size()
+	} else {
+		return nil, fiErr
 	}
 
 	ext := strings.ToLower(path.Ext(ret.FileName))
@@ -76,6 +77,7 @@ func NewFilePart(fullPathFilename string) (*FilePart, error) {
 	return &ret, nil
 }
 
+// NewFileParts create many file part at once.
 func NewFileParts(fullPathFilenames []string) (ret []*FilePart, err error) {
 	ret = make([]*FilePart, len(fullPathFilenames))
 	for index, file := range fullPathFilenames {

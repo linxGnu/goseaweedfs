@@ -44,26 +44,26 @@ func NewHTTPClient(timeout time.Duration) *HTTPClient {
 	}}
 }
 
-// PostBytes post raw bytes
-func (c *HTTPClient) PostBytes(url string, body []byte) (respBody []byte, statusCode int, err error) {
-	defer func() {
-		if e := recover(); e != nil {
-			err = fmt.Errorf("%v", e)
-		}
-	}()
+// // PostBytes post raw bytes
+// func (c *HTTPClient) PostBytes(url string, body []byte) (respBody []byte, statusCode int, err error) {
+// 	defer func() {
+// 		if e := recover(); e != nil {
+// 			err = fmt.Errorf("%v", e)
+// 		}
+// 	}()
 
-	r, err := c.Client.Post(url, "application/octet-stream", bytes.NewReader(body))
-	if err != nil {
-		err = fmt.Errorf("Post to %s: %v", url, err)
-		return
-	}
-	defer r.Body.Close()
+// 	r, err := c.Client.Post(url, "application/octet-stream", bytes.NewReader(body))
+// 	if err != nil {
+// 		err = fmt.Errorf("Post to %s: %v", url, err)
+// 		return
+// 	}
+// 	defer r.Body.Close()
 
-	statusCode = r.StatusCode
-	respBody, err = ioutil.ReadAll(r.Body)
+// 	statusCode = r.StatusCode
+// 	respBody, err = ioutil.ReadAll(r.Body)
 
-	return
-}
+// 	return
+// }
 
 // PostForm do post with post form values
 func (c *HTTPClient) PostForm(_url string, values url.Values) (respBody []byte, statusCode int, err error) {
@@ -143,6 +143,7 @@ func (c *HTTPClient) GetWithHeaders(fullURL string, headers map[string]string) (
 	return
 }
 
+// GetWithURL do http get with full url/uri
 func (c *HTTPClient) GetWithURL(fullURL string) (respBody []byte, statusCode int, err error) {
 	defer func() {
 		if e := recover(); e != nil {
@@ -213,48 +214,48 @@ func (c *HTTPClient) Delete(url string) (statusCode int, err error) {
 	return
 }
 
-// DownloadFromURL download file from url.
-// Note: rc must be closed after finishing as other ReadCloser.
-func (c *HTTPClient) DownloadFromURL(fileURL string) (filename string, rc io.ReadCloser, err error) {
-	defer func() {
-		if e := recover(); e != nil {
-			err = fmt.Errorf("%v", e)
-		}
-	}()
+// // DownloadFromURL download file from url.
+// // Note: rc must be closed after finishing as other ReadCloser.
+// func (c *HTTPClient) DownloadFromURL(fileURL string) (filename string, rc io.ReadCloser, err error) {
+// 	defer func() {
+// 		if e := recover(); e != nil {
+// 			err = fmt.Errorf("%v", e)
+// 		}
+// 	}()
 
-	r, err := c.Client.Get(fileURL)
-	if err != nil {
-		return "", nil, err
-	}
+// 	r, err := c.Client.Get(fileURL)
+// 	if err != nil {
+// 		return "", nil, err
+// 	}
 
-	if r.StatusCode != http.StatusOK {
-		r.Body.Close()
-		err = fmt.Errorf("Download %s: %s", fileURL, r.Status)
-		return
-	}
+// 	if r.StatusCode != http.StatusOK {
+// 		r.Body.Close()
+// 		err = fmt.Errorf("Download %s: %s", fileURL, r.Status)
+// 		return
+// 	}
 
-	contentDisposition := r.Header["Content-Disposition"]
-	if len(contentDisposition) > 0 {
-		if strings.HasPrefix(contentDisposition[0], "filename=") {
-			filename = contentDisposition[0][len("filename="):]
-			filename = strings.Trim(filename, "\"")
-		}
-	}
-	rc = r.Body
+// 	contentDisposition := r.Header["Content-Disposition"]
+// 	if len(contentDisposition) > 0 {
+// 		if strings.HasPrefix(contentDisposition[0], "filename=") {
+// 			filename = contentDisposition[0][len("filename="):]
+// 			filename = strings.Trim(filename, "\"")
+// 		}
+// 	}
+// 	rc = r.Body
 
-	return
-}
+// 	return
+// }
 
-// Do any request
-func (c *HTTPClient) Do(req *http.Request) (resp *http.Response, err error) {
-	defer func() {
-		if e := recover(); e != nil {
-			err = fmt.Errorf("%v", e)
-		}
-	}()
+// // Do any request
+// func (c *HTTPClient) Do(req *http.Request) (resp *http.Response, err error) {
+// 	defer func() {
+// 		if e := recover(); e != nil {
+// 			err = fmt.Errorf("%v", e)
+// 		}
+// 	}()
 
-	return c.Client.Do(req)
-}
+// 	return c.Client.Do(req)
+// }
 
 // Upload file content
 func (c *HTTPClient) Upload(uploadURL string, filename string, reader io.Reader, isGzipped bool, mtype string) (respBody []byte, statusCode int, err error) {

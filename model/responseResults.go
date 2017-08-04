@@ -18,6 +18,7 @@ type AssignResult struct {
 	Error     string `json:"error,omitempty"`
 }
 
+// SubmitResult result of submit operation.
 type SubmitResult struct {
 	FileName string `json:"fileName,omitempty"`
 	FileURL  string `json:"fileUrl,omitempty"`
@@ -26,18 +27,21 @@ type SubmitResult struct {
 	Error    string `json:"error,omitempty"`
 }
 
+// ClusterStatus result of getting status of cluster
 type ClusterStatus struct {
 	IsLeader bool
 	Leader   string
 	Peers    []string
 }
 
+// SystemStatus result of getting status of system
 type SystemStatus struct {
 	Topology Topology
 	Version  string
 	Error    string
 }
 
+// Topology result of topology stats request
 type Topology struct {
 	DataCenters []*DataCenter
 	Free        int
@@ -45,26 +49,30 @@ type Topology struct {
 	Layouts     []*Layout
 }
 
+// DataCenter stats of a datacenter
 type DataCenter struct {
 	Free  int
 	Max   int
 	Racks []*Rack
 }
 
+// Rack stats of racks
 type Rack struct {
 	DataNodes []*DataNode
 	Free      int
 	Max       int
 }
 
+// DataNode stats of data node
 type DataNode struct {
 	Free      int
 	Max       int
-	PublicUrl string
-	Url       string
+	PublicURL string `json:"PublicUrl"`
+	URL       string `json:"Url"`
 	Volumes   int
 }
 
+// Layout of replication/collection stats. According to https://github.com/chrislusf/seaweedfs/wiki/Master-Server-API
 type Layout struct {
 	Replication string
 	Writables   []uint64

@@ -1,10 +1,8 @@
 package model
 
-import (
-	"fmt"
-	"math/rand"
-)
+import "math/rand"
 
+// VolumeLocation location of volume responsed from master API. According to https://github.com/chrislusf/seaweedfs/wiki/Master-Server-API
 type VolumeLocation struct {
 	URL       string `json:"url,omitempty"`
 	PublicURL string `json:"publicUrl,omitempty"`
@@ -31,12 +29,9 @@ func (c VolumeLocations) RandomPickForRead() *VolumeLocation {
 	return c[rand.Intn(len(c))]
 }
 
+// LookupResult the result of looking up volume. According to https://github.com/chrislusf/seaweedfs/wiki/Master-Server-API
 type LookupResult struct {
 	VolumeID        string          `json:"volumeId,omitempty"`
 	VolumeLocations VolumeLocations `json:"locations,omitempty"`
 	Error           string          `json:"error,omitempty"`
-}
-
-func (c *LookupResult) String() string {
-	return fmt.Sprintf("VolumeId:%s, Locations:%v, Error:%s", c.VolumeID, c.VolumeLocations, c.Error)
 }

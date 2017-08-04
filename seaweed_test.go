@@ -238,7 +238,7 @@ func TestFiler(t *testing.T) {
 		return
 	}
 
-	//
+	// test with prefix /
 	filer := sw.Filers[0]
 	if uploadResult, err := filer.UploadFile(SmallFile, "/js/test.txt", "", ""); err != nil {
 		t.Fatal(err)
@@ -246,7 +246,7 @@ func TestFiler(t *testing.T) {
 		fmt.Println(uploadResult)
 	}
 
-	if dir, err := filer.Dir("/js"); err != nil {
+	if dir, err := filer.Dir("/js/"); err != nil {
 		t.Fatal(err)
 	} else {
 		if dir.Files == nil || len(dir.Files) == 0 {
@@ -267,6 +267,39 @@ func TestFiler(t *testing.T) {
 
 		// try to delete this file
 		if err := filer.Delete("/js/test.txt"); err != nil {
+			t.Fatal(err)
+		}
+	}
+
+	// test with non prefix /
+	filer = sw.Filers[0]
+	if uploadResult, err := filer.UploadFile(SmallFile, "jsx/test1.jsx", "", ""); err != nil {
+		t.Fatal(err)
+	} else {
+		fmt.Println(uploadResult)
+	}
+
+	if dir, err := filer.Dir("jsx"); err != nil {
+		t.Fatal(err)
+	} else {
+		if dir.Files == nil || len(dir.Files) == 0 {
+			t.Fatal(fmt.Errorf("Directory js contains no file"))
+		}
+
+		// check directory
+		contain := false
+		for _, v := range dir.Files {
+			if v.Name == "test1.jsx" {
+				contain = true
+				break
+			}
+		}
+		if !contain {
+			t.Fatal(fmt.Errorf("Directory jsx does not contain test1.jsx"))
+		}
+
+		// try to delete this file
+		if err := filer.Delete("jsx/test1.jsx"); err != nil {
 			t.Fatal(err)
 		}
 	}

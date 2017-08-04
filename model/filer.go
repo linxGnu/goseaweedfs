@@ -7,22 +7,26 @@ import (
 	"github.com/linxGnu/goseaweedfs/libs"
 )
 
+// File structure according to filer API at https://github.com/chrislusf/seaweedfs/wiki/Filer-Server-API.
 type File struct {
 	FileID string `json:"fid"`
 	Name   string `json:"name"`
 }
 
+// Dir directory of filer. According to https://github.com/chrislusf/seaweedfs/wiki/Filer-Server-API.
 type Dir struct {
 	Path    string `json:"Directory"`
 	Files   []*File
 	Subdirs []*File `json:"Subdirectories"`
 }
 
+// Filer client
 type Filer struct {
 	URL        string `json:"url"`
 	HTTPClient *libs.HTTPClient
 }
 
+// FilerUploadResult upload result which responsed from filer server. According to https://github.com/chrislusf/seaweedfs/wiki/Filer-Server-API.
 type FilerUploadResult struct {
 	Name    string `json:"name,omitempty"`
 	FileURL string `json:"url,omitempty"`
@@ -72,7 +76,7 @@ func (f *Filer) UploadFile(filePath, newFilerPath, collection, ttl string) (resu
 		return
 	}
 	fp.Collection = collection
-	fp.Ttl = ttl
+	fp.TTL = ttl
 
 	if !strings.HasPrefix(newFilerPath, "/") {
 		newFilerPath = "/" + newFilerPath
