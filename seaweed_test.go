@@ -221,6 +221,25 @@ func TestSubmit(t *testing.T) {
 	}
 }
 
+func TestDownloadFile(t *testing.T) {
+	if sw == nil {
+		return
+	}
+
+	if SmallFile != "" {
+		fileName, fileData, err := sw.DownloadFile(SmallFile, nil)
+		if err != nil {
+			t.Fatal(err)
+		}
+		fmt.Println("Download file name is ", fileName)
+		f, err := os.Create(fileName)
+		if err != nil {
+			t.Fatal(err)
+		}
+		f.Write(fileData)
+	}
+}
+
 func TestDeleteChunks(t *testing.T) {
 	if sw == nil {
 		return

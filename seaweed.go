@@ -17,6 +17,7 @@ import (
 	"time"
 
 	cache "github.com/patrickmn/go-cache"
+	"io/ioutil"
 )
 
 var (
@@ -616,6 +617,27 @@ func (c *Seaweed) uploadManifest(f *model.FilePart, manifest *model.ChunkManifes
 
 	_, _, e = c.HTTPClient.Upload(libs.MakeURL(c.Scheme, f.Server, f.FileID, args), manifest.Name, bufReader, false, "application/json")
 	return e
+}
+
+func (c *Seaweed) DownloadFile(fileID string, args url.Values) (string, []byte, error) {
+	if args == nil {
+		args = make(url.Values)
+	}
+	fileURL, err := c.LookupFileID(fileID, args, true)
+	if err != nil {
+		return "", nil, err
+	}
+	fileName, rc, err := c.HTTPClient.DownloadFromURL(fileURL)
+	if err != nil {
+		return "", nil, err
+	}
+	fileData, err := ioutil.ReadAll(rc)
+	if err != nil {
+		return "", nil, err
+	}
+	defer rc.Close()
+	return fileName, fileData, nil
+
 }
 
 // DeleteChunks concurrently delete chunks
