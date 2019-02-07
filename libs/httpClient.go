@@ -216,35 +216,35 @@ func (c *HTTPClient) Delete(url string) (statusCode int, err error) {
 
 // // DownloadFromURL download file from url.
 // // Note: rc must be closed after finishing as other ReadCloser.
-// func (c *HTTPClient) DownloadFromURL(fileURL string) (filename string, rc io.ReadCloser, err error) {
-// 	defer func() {
-// 		if e := recover(); e != nil {
-// 			err = fmt.Errorf("%v", e)
-// 		}
-// 	}()
+func (c *HTTPClient) DownloadFromURL(fileURL string) (filename string, rc io.ReadCloser, err error) {
+	defer func() {
+		if e := recover(); e != nil {
+			err = fmt.Errorf("%v", e)
+		}
+	}()
 
-// 	r, err := c.Client.Get(fileURL)
-// 	if err != nil {
-// 		return "", nil, err
-// 	}
+	r, err := c.Client.Get(fileURL)
+	if err != nil {
+		return "", nil, err
+	}
 
-// 	if r.StatusCode != http.StatusOK {
-// 		r.Body.Close()
-// 		err = fmt.Errorf("Download %s: %s", fileURL, r.Status)
-// 		return
-// 	}
+	if r.StatusCode != http.StatusOK {
+		r.Body.Close()
+		err = fmt.Errorf("Download %s: %s", fileURL, r.Status)
+		return
+	}
 
-// 	contentDisposition := r.Header["Content-Disposition"]
-// 	if len(contentDisposition) > 0 {
-// 		if strings.HasPrefix(contentDisposition[0], "filename=") {
-// 			filename = contentDisposition[0][len("filename="):]
-// 			filename = strings.Trim(filename, "\"")
-// 		}
-// 	}
-// 	rc = r.Body
+	contentDisposition := r.Header["Content-Disposition"]
+	if len(contentDisposition) > 0 {
+		if strings.HasPrefix(contentDisposition[0], "filename=") {
+			filename = contentDisposition[0][len("filename="):]
+			filename = strings.Trim(filename, "\"")
+		}
+	}
+	rc = r.Body
 
-// 	return
-// }
+	return
+}
 
 // // Do any request
 // func (c *HTTPClient) Do(req *http.Request) (resp *http.Response, err error) {
