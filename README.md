@@ -14,9 +14,15 @@ A complete Golang client for [SeaweedFS](https://github.com/chrislusf/seaweedfs)
 Add buffer pool support when uploading in multipart-format, which will pre-allocate and re-use memory and reduce memory usage significantly if the size of uploading file can be estimated.
 
 ### How to use the pool
+```bash
+go get -u github.com/darkdarkfruit/goseaweedfs
+
+# If the PR is accepted(Not yet), then do:
+# go get -u github.com/linxGnu/goseaweedfs 
+```
 Just call
 ```go
-// pollSize: 20, every buffer has 25MB
+// For example: pollSize: 20, every buffer has 25MB
 goseaweedfs.SetBufferPoolForUploading(20, 25 * 1024 * 1024)
 ``` 
 
