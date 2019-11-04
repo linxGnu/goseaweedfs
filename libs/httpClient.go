@@ -4,6 +4,7 @@ import (
 	"bytes"
 	"encoding/json"
 	"fmt"
+	"github.com/linxGnu/goseaweedfs"
 	"io"
 	"io/ioutil"
 	"mime"
@@ -194,7 +195,20 @@ func (c *HTTPClient) Upload(uploadURL string, filename string, reader io.Reader,
 }
 
 func (c *HTTPClient) uploadContent(uploadURL string, fillBuffer func(w io.Writer) error, filename string, isGzipped bool, mtype string) (respBody []byte, statusCode int, err error) {
-	body := &bytes.Buffer{}
+	var body *bytes.Buffer
+	pool := goseaweedfs.GetBufferPoolForUploading()
+	if pool != nil {
+		body := pool.Get()
+		defer func() {
+			//t0 := time.Now()
+			//fmt.Printf("*** Putting buffer: %s to pool\n", body)
+			pool.Put(body) //
+			//fmt.Printf("*** Already put buffer back, d: %s\n", time.Now().Sub(t0))
+		}()
+	} else {
+		body = &bytes.Buffer{}
+	}
+
 	bodyWriter := multipart.NewWriter(body)
 
 	h := make(textproto.MIMEHeader)
