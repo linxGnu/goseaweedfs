@@ -34,12 +34,18 @@ func NewBufferPool(bufferCap int) *BufferPool {
 }
 
 func (bp *BufferPool) Get() *bytes.Buffer {
-	return bp.Pool.Get().(*bytes.Buffer)
+	buf := bp.Pool.Get().(*bytes.Buffer)
+	//fmt.Printf("got buf: %d, %d\n", len(buf.Bytes()), cap(buf.Bytes()))
+	return buf
+	//return bp.Pool.Get().(*bytes.Buffer)
 }
 
 func (bp *BufferPool) Put(buf *bytes.Buffer) {
+	//fmt.Printf("putting buf: %d, %d\n", len(buf.Bytes()), cap(buf.Bytes()))
 	buf.Reset()
+	//fmt.Printf("reset buf: %d, %d\n", len(buf.Bytes()), cap(buf.Bytes()))
 	bp.Pool.Put(buf)
+	//fmt.Printf("put\n")
 }
 
 //

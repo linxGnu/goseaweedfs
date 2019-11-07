@@ -211,13 +211,16 @@ func (c *HTTPClient) uploadContent(uploadURL string, fillBuffer func(w io.Writer
 	var body *bytes.Buffer
 	pool := c.BufferPool
 	if pool != nil {
-		body := pool.Get()
+		body = pool.Get()
 		defer func() {
-			t0 := time.Now()
-			fmt.Printf("*** Seaweedfs Putting buffer: %s to pool\n", body)
+			//t0 := time.Now()
+			//fmt.Printf("*** Seaweedfs Putting buffer: %p to pool\n", body)
 			pool.Put(body) //
-			fmt.Printf("*** Seaweedfs Already put buffer back, d: %s\n", time.Now().Sub(t0))
+			//fmt.Printf("*** Seaweedfs Already put buffer back, d: %s\n", time.Now().Sub(t0))
 		}()
+		//if body == nil {
+		//	panic("body is nil")
+		//}
 	} else {
 		body = &bytes.Buffer{}
 	}
