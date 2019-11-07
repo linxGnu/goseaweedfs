@@ -1,27 +1,46 @@
 package goseaweedfs
 
-import "github.com/oxtoacart/bpool"
+import (
+	"bytes"
+	"sync"
+)
 
-// !! For user who wants to use buffer pool when uploading, please explicitly call SetBufferPoolForUploading(poolSize, BufferSize) !!
+var gBufferPool *BufferPool
 
-var gBufferPool *bpool.SizedBufferPool
+// !! For user who wants to use buffer pool when uploading, please explicitly call InitBufferPool(bufferLen, bufferCap int) !!
+func InitBufferPool(bufferLen, bufferCap int) *BufferPool {
+	gBufferPool = NewBufferPool(bufferLen, bufferCap)
+	buf := gBufferPool.Get() // pre-cache
+	gBufferPool.Put(buf)     // pre-cache
+	return gBufferPool
+}
 
-////BufferPoolOptionsForUploading : will be used when uploading with multipart which will pre-allocate and reuse memory, and reduce memory usage significantly if we can estimate the file size we are uploading.
-//type BufferPoolOptionsForUploading struct {
-//	PoolSize   int // how many buffers in the pool, eg: 16
-//	BufferSize int // length of a buffer, eg: 32 * 1024 * 1024
-//}
+func GetBufferPool() *BufferPool {
+	return gBufferPool
+}
+
+// BufferPool : will be used when uploading with multipart which will pre-allocate and reuse memory, and reduce memory usage significantly if we can estimate the file size we are uploading.
+type BufferPool struct {
+	BufferLen int
+	BufferCap int
+	*sync.Pool
+}
+
+func NewBufferPool(bufferLen int, bufferCap int) *BufferPool {
+	pool := &BufferPool{BufferLen: bufferLen, BufferCap: bufferCap}
+	pool.Pool = &sync.Pool{New: func() interface{} {
+		return bytes.NewBuffer(make([]byte, pool.BufferLen, pool.BufferCap))
+	}}
+	return pool
+}
+
+func (bp *BufferPool) Get() *bytes.Buffer {
+	return bp.Pool.Get().(*bytes.Buffer)
+}
+
+func (bp *BufferPool) Put(buf *bytes.Buffer) {
+	buf.Reset()
+	bp.Pool.Put(buf)
+}
+
 //
-//func NewBufferPoolOptionsForUploading(poolSize int, bufferSize int) *BufferPoolOptionsForUploading {
-//	return &BufferPoolOptionsForUploading{PoolSize: poolSize, BufferSize: bufferSize}
-//}
-
-//SetUploadOptions : will be used when uploading with multipart which will pre-allocate and reuse memory, and reduce memory usage significantly if we can estimate the size of uploading file.
-func SetBufferPoolForUploading(poolSize, bufferSize int) *bpool.SizedBufferPool {
-	gBufferPool = bpool.NewSizedBufferPool(poolSize, bufferSize)
-	return gBufferPool
-}
-
-func GetBufferPoolForUploading() *bpool.SizedBufferPool {
-	return gBufferPool
-}
