@@ -6,7 +6,6 @@ import (
 
 func TestBufferPool_Put(t *testing.T) {
 	type fields struct {
-		BufferLen int
 		BufferCap int
 	}
 	tests := []struct {
@@ -16,19 +15,14 @@ func TestBufferPool_Put(t *testing.T) {
 		{
 			name: "test new, init, get, put",
 			fields: fields{
-				BufferLen: 0,
 				BufferCap: 1024,
 			},
 		},
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			pool := NewBufferPool(tt.fields.BufferLen, tt.fields.BufferCap)
+			pool := NewBufferPool(tt.fields.BufferCap)
 			buf := pool.Get()
-			if len(buf.Bytes()) != tt.fields.BufferLen {
-				t.Errorf("len not match")
-				return
-			}
 			if cap(buf.Bytes()) != tt.fields.BufferCap {
 				t.Errorf("cap not match")
 				return

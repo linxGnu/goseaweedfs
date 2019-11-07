@@ -122,7 +122,7 @@ func NewSeaweed(scheme string, master string, filers []string, chunkSize int64, 
 // NewSeaweed create new seaweed with default
 func NewSeaweedWithBufferPoolSupport(scheme string, master string, filers []string, chunkSize int64, timeout time.Duration, poolBufferLen, poolBufferCap int) *Seaweed {
 	res := NewSeaweed(scheme, master, filers, chunkSize, timeout)
-	res.Client.BufferPool = libs.NewBufferPool(poolBufferLen, poolBufferCap)
+	res.Client.BufferPool = libs.NewBufferPool(poolBufferCap)
 	return res
 }
 

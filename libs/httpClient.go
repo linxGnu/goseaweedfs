@@ -46,16 +46,16 @@ func NewHTTPClient(timeout time.Duration) *HTTPClient {
 }
 
 // NewHTTPClient new http client wrapper
-func NewHTTPClientWithBufferPoolSupport(timeout time.Duration, bufferLen, bufferCap int) *HTTPClient {
+func NewHTTPClientWithBufferPoolSupport(timeout time.Duration, bufferCap int) *HTTPClient {
 	return &HTTPClient{Client: &http.Client{
 		Timeout: timeout,
 	},
-		BufferPool: NewBufferPool(bufferLen, bufferCap),
+		BufferPool: NewBufferPool(bufferCap),
 	}
 }
 
-func (c *HTTPClient) InitBufferPool(bufferLen, bufferCap int) {
-	c.BufferPool = NewBufferPool(bufferLen, bufferCap)
+func (c *HTTPClient) InitBufferPool(bufferCap int) {
+	c.BufferPool = NewBufferPool(bufferCap)
 }
 
 func (c *HTTPClient) closeBody(body io.ReadCloser) {

@@ -21,15 +21,14 @@ import (
 
 // BufferPool : will be used when uploading with multipart which will pre-allocate and reuse memory, and reduce memory usage significantly if we can estimate the file size we are uploading.
 type BufferPool struct {
-	BufferLen int
 	BufferCap int
 	*sync.Pool
 }
 
-func NewBufferPool(bufferLen int, bufferCap int) *BufferPool {
-	pool := &BufferPool{BufferLen: bufferLen, BufferCap: bufferCap}
+func NewBufferPool(bufferCap int) *BufferPool {
+	pool := &BufferPool{BufferCap: bufferCap}
 	pool.Pool = &sync.Pool{New: func() interface{} {
-		return bytes.NewBuffer(make([]byte, pool.BufferLen, pool.BufferCap))
+		return bytes.NewBuffer(make([]byte, 0, pool.BufferCap))
 	}}
 	return pool
 }
