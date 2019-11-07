@@ -4,7 +4,7 @@ import (
 	"encoding/json"
 	"strings"
 
-	"github.com/linxGnu/goseaweedfs/libs"
+	"github.com/darkdarkfruit/goseaweedfs/libs"
 )
 
 // File structure according to filer API at https://github.com/chrislusf/seaweedfs/wiki/Filer-Server-API.

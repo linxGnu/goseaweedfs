@@ -1,4 +1,4 @@
-package goseaweedfs
+package libs
 
 import (
 	"testing"
@@ -23,7 +23,7 @@ func TestBufferPool_Put(t *testing.T) {
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			pool := InitBufferPool(tt.fields.BufferLen, tt.fields.BufferCap)
+			pool := NewBufferPool(tt.fields.BufferLen, tt.fields.BufferCap)
 			buf := pool.Get()
 			if len(buf.Bytes()) != tt.fields.BufferLen {
 				t.Errorf("len not match")

@@ -5,6 +5,7 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"github.com/darkdarkfruit/goseaweedfs/model"
 	"io"
 	"io/ioutil"
 	"net/url"
@@ -14,10 +15,9 @@ import (
 	"sync"
 	"time"
 
-	"github.com/linxGnu/goseaweedfs/libs"
-	"github.com/linxGnu/goseaweedfs/model"
+	"github.com/darkdarkfruit/goseaweedfs/libs"
 
-	cache "github.com/patrickmn/go-cache"
+	"github.com/patrickmn/go-cache"
 )
 
 var (
@@ -116,6 +116,13 @@ func NewSeaweed(scheme string, master string, filers []string, chunkSize int64, 
 		}
 	}
 
+	return res
+}
+
+// NewSeaweed create new seaweed with default
+func NewSeaweedWithBufferPoolSupport(scheme string, master string, filers []string, chunkSize int64, timeout time.Duration, poolBufferLen, poolBufferCap int) *Seaweed {
+	res := NewSeaweed(scheme, master, filers, chunkSize, timeout)
+	res.Client.BufferPool = libs.NewBufferPool(poolBufferLen, poolBufferCap)
 	return res
 }
 

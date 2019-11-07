@@ -4,7 +4,6 @@ import (
 	"bytes"
 	"encoding/json"
 	"fmt"
-	"github.com/darkdarkfruit/goseaweedfs"
 	"io"
 	"io/ioutil"
 	"mime"
@@ -35,7 +34,8 @@ func MakeURL(scheme, host, path string, args url.Values) string {
 
 // HTTPClient wrapper for http client
 type HTTPClient struct {
-	Client *http.Client
+	Client     *http.Client
+	BufferPool *BufferPool
 }
 
 // NewHTTPClient new http client wrapper
@@ -43,6 +43,19 @@ func NewHTTPClient(timeout time.Duration) *HTTPClient {
 	return &HTTPClient{Client: &http.Client{
 		Timeout: timeout,
 	}}
+}
+
+// NewHTTPClient new http client wrapper
+func NewHTTPClientWithBufferPoolSupport(timeout time.Duration, bufferLen, bufferCap int) *HTTPClient {
+	return &HTTPClient{Client: &http.Client{
+		Timeout: timeout,
+	},
+		BufferPool: NewBufferPool(bufferLen, bufferCap),
+	}
+}
+
+func (c *HTTPClient) InitBufferPool(bufferLen, bufferCap int) {
+	c.BufferPool = NewBufferPool(bufferLen, bufferCap)
 }
 
 func (c *HTTPClient) closeBody(body io.ReadCloser) {
@@ -196,7 +209,7 @@ func (c *HTTPClient) Upload(uploadURL string, filename string, reader io.Reader,
 
 func (c *HTTPClient) uploadContent(uploadURL string, fillBuffer func(w io.Writer) error, filename string, isGzipped bool, mtype string) (respBody []byte, statusCode int, err error) {
 	var body *bytes.Buffer
-	pool := goseaweedfs.GetBufferPool()
+	pool := c.BufferPool
 	if pool != nil {
 		body := pool.Get()
 		defer func() {

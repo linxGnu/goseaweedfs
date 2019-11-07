@@ -22,8 +22,16 @@ go get -u github.com/darkdarkfruit/goseaweedfs
 ```
 Just call
 ```go
-// For example: pollSize: 20, every buffer has 25MB
-goseaweedfs.SetBufferPoolForUploading(20, 25 * 1024 * 1024)
+
+// make a client
+weed := goseaweedfs.NewSeaweed(c.MasterScheme, c.MasterAddr, nil, 4*1024*1024, time.Minute)
+
+// then set the pool, eg: bufferLen: 0, bufferCap: 32M
+weed.Client.Client.InitBufferPool(0, 32*1024*1024)
+
+// ---
+// or one call
+weed := goseaweedfs.NewSeaweedWithBufferPoolSupport(c.MasterScheme, c.MasterAddr, nil, 4*1024*1024, time.Minute, 0, 32*1024*1024)
 ``` 
 
  
