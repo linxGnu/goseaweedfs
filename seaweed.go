@@ -111,7 +111,7 @@ func NewSeaweed(scheme string, master string, filers []string, chunkSize int64, 
 	if len(filers) > 0 {
 		res.Filers = make([]*Filer, len(filers))
 		for i := range filers {
-			if res.Filers[i], err = NewFiler(filers[i], res.client); err != nil {
+			if res.Filers[i], err = NewFiler(filers[i], client); err != nil {
 				_ = res.client.Close()
 				return
 			}

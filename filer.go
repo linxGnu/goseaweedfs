@@ -2,6 +2,8 @@ package goseaweedfs
 
 import (
 	"encoding/json"
+	"io"
+	"net/http"
 	"net/url"
 )
 
@@ -20,8 +22,8 @@ type Dir struct {
 
 // Filer client
 type Filer struct {
-	base       *url.URL
-	httpClient *httpClient
+	base   *url.URL
+	client *httpClient
 }
 
 // FilerUploadResult upload result which responsed from filer server. According to https://github.com/chrislusf/seaweedfs/wiki/Filer-Server-API.
@@ -34,21 +36,21 @@ type FilerUploadResult struct {
 }
 
 // NewFiler new filer with filer server's url
-func NewFiler(u string, httpClient *httpClient) (f *Filer, err error) {
+func NewFiler(u string, client *http.Client) (f *Filer, err error) {
 	base, err := url.Parse(u)
 	if err != nil {
 		return
 	}
 	f = &Filer{
-		base:       base,
-		httpClient: httpClient,
+		base:   base,
+		client: newHttpClient(client),
 	}
 	return
 }
 
 // Dir list in directory
 func (f *Filer) Dir(path string) (result *Dir, err error) {
-	data, _, err := f.httpClient.getWithHeaders(f.fullpath(path), map[string]string{
+	data, _, err := f.client.getWithHeaders(f.fullpath(path), map[string]string{
 		"Accept": "application/json",
 	})
 	if err != nil {
@@ -64,14 +66,14 @@ func (f *Filer) Dir(path string) (result *Dir, err error) {
 }
 
 // Upload a file.
-func (f *Filer) Upload(filePath, newPath, collection, ttl string) (result *FilerUploadResult, err error) {
-	fp, err := NewFilePart(filePath)
+func (f *Filer) Upload(localFilePath, newPath, collection, ttl string) (result *FilerUploadResult, err error) {
+	fp, err := NewFilePart(localFilePath)
 	if err == nil {
 		fp.Collection = collection
 		fp.TTL = ttl
 
 		var data []byte
-		data, _, err = f.httpClient.upload(f.fullpath(newPath), filePath, fp.Reader, fp.IsGzipped, fp.MimeType)
+		data, _, err = f.client.upload(f.fullpath(newPath), localFilePath, fp.Reader, fp.IsGzipped, fp.MimeType)
 		if err == nil {
 			result = &FilerUploadResult{}
 			err = json.Unmarshal(data, result)
@@ -82,9 +84,15 @@ func (f *Filer) Upload(filePath, newPath, collection, ttl string) (result *Filer
 	return
 }
 
+// Download a file.
+func (f *Filer) Download(path string, callback func(io.Reader) error) (err error) {
+	_, err = f.client.Download(f.fullpath(path), callback)
+	return
+}
+
 // Delete a file/dir.
 func (f *Filer) Delete(path string, recursive bool) (err error) {
-	_, err = f.httpClient.delete(f.fullpath(path), recursive)
+	_, err = f.client.delete(f.fullpath(path), recursive)
 	return
 }
 

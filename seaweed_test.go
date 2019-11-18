@@ -200,6 +200,12 @@ func TestFiler(t *testing.T) {
 	}
 	require.True(t, contain)
 
+	// try to download
+	err = filer.Download("jsx/test1.jsx", func(r io.Reader) error {
+		return fmt.Errorf("Fake error")
+	})
+	require.NotNil(t, err)
+
 	// try to delete this file
 	err = filer.Delete("jsx/test1.jsx", true)
 	require.Nil(t, err)
