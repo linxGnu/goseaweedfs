@@ -60,29 +60,26 @@ func (f *Filer) Dir(pathname string) (result *Dir, err error) {
 	return
 }
 
-// UploadFile a file
-func (f *Filer) UploadFile(filePath, newFilerPath, collection, ttl string) (result *FilerUploadResult, err error) {
+// Upload a file.
+func (f *Filer) Upload(filePath, newFilerPath, collection, ttl string) (result *FilerUploadResult, err error) {
 	fp, err := NewFilePart(filePath)
-	if err != nil {
-		return
-	}
-	fp.Collection = collection
-	fp.TTL = ttl
+	if err == nil {
+		fp.Collection = collection
+		fp.TTL = ttl
 
-	data, _, err := f.httpClient.upload(filepath.Join(f.URL, newFilerPath), filePath, fp.Reader, fp.IsGzipped, fp.MimeType)
-	if err != nil {
-		return
-	}
+		var data []byte
+		data, _, err = f.httpClient.upload(filepath.Join(f.URL, newFilerPath), filePath, fp.Reader, fp.IsGzipped, fp.MimeType)
+		if err == nil {
+			result = &FilerUploadResult{}
+			err = json.Unmarshal(data, result)
+		}
 
-	result = &FilerUploadResult{}
-	if err = json.Unmarshal(data, result); err != nil {
-		return
+		_ = fp.Close()
 	}
-
 	return
 }
 
-// Delete a file/dir
+// Delete a file/dir.
 func (f *Filer) Delete(pathname string, recursive bool) (err error) {
 	_, err = f.httpClient.delete(filepath.Join(f.URL, pathname), recursive)
 	return

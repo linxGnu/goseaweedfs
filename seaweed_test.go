@@ -160,7 +160,8 @@ func TestFiler(t *testing.T) {
 	// test with prefix /
 	filer := sw.Filers[0]
 
-	_, err := filer.UploadFile(SmallFile, "/js/test.txt", "", "")
+	_, err := filer.Upload(SmallFile, "/js/test.txt", "", "")
+	fmt.Println(err)
 	require.Nil(t, err)
 
 	dir, err := filer.Dir("/js/")
@@ -183,7 +184,7 @@ func TestFiler(t *testing.T) {
 
 	// test with non prefix /
 	filer = sw.Filers[0]
-	_, err = filer.UploadFile(SmallFile, "jsx/test1.jsx", "", "")
+	_, err = filer.Upload(SmallFile, "jsx/test1.jsx", "", "")
 	require.Nil(t, err)
 
 	dir, err = filer.Dir("jsx")
