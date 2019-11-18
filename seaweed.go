@@ -95,7 +95,7 @@ type Seaweed struct {
 }
 
 // NewSeaweed create new seaweed client. Master url must be a valid uri (which includes scheme).
-func NewSeaweed(masterURL string, filers []string, chunkSize int64, client *http.Client) (res *Seaweed, err error) {
+func NewSeaweed(masterURL string, filers []string, chunkSize int64, client *http.Client) (c *Seaweed, err error) {
 	u, err := parseURI(masterURL)
 	if err != nil {
 		return
@@ -103,7 +103,7 @@ func NewSeaweed(masterURL string, filers []string, chunkSize int64, client *http
 
 	workers := createWorkerPool()
 
-	res = &Seaweed{
+	c = &Seaweed{
 		master:    u,
 		client:    newHTTPClient(client, workers),
 		chunkSize: chunkSize,
@@ -111,19 +111,19 @@ func NewSeaweed(masterURL string, filers []string, chunkSize int64, client *http
 	}
 
 	if len(filers) > 0 {
-		res.filers = make([]*Filer, 0, len(filers))
+		c.filers = make([]*Filer, 0, len(filers))
 		for i := range filers {
 			var filer *Filer
-			filer, err = newFiler(filers[i], res.client)
+			filer, err = newFiler(filers[i], c.client)
 			if err != nil {
 				return
 			}
-			res.filers = append(res.filers, filer)
+			c.filers = append(c.filers, filer)
 		}
 	}
 
 	// start underlying workers
-	res.workers.Start()
+	c.workers.Start()
 
 	return
 }
@@ -415,7 +415,11 @@ func (c *Seaweed) BatchUploadFileParts(files []*FilePart, collection string, ttl
 		file.Server = assigned.URL
 		file.Collection = collection
 
-		task := c.uploadTask(file, assigned, results[i])
+		results[i].Size = file.FileSize
+		results[i].FileID = file.FileID
+		results[i].FileURL = assigned.PublicURL + "/" + file.FileID
+
+		task := c.uploadTask(file)
 		c.workers.Do(task)
 		tasks = append(tasks, task)
 	}
@@ -430,13 +434,11 @@ func (c *Seaweed) BatchUploadFileParts(files []*FilePart, collection string, ttl
 	return results, nil
 }
 
-func (c *Seaweed) uploadTask(file *FilePart, assigned *AssignResult, result *SubmitResult) *workerpool.Task {
-	return workerpool.NewTask(context.Background(), func(ctx context.Context) (interface{}, error) {
-		result.Size = file.FileSize
-		result.FileID = file.FileID
-		result.FileURL = assigned.PublicURL + "/" + file.FileID
-		_, _, err := c.UploadFilePart(file)
-		return nil, err
+func (c *Seaweed) uploadTask(file *FilePart) *workerpool.Task {
+	return workerpool.NewTask(context.Background(), func(ctx context.Context) (res interface{}, err error) {
+		fmt.Println("Uploading", file)
+		_, _, err = c.UploadFilePart(file)
+		return
 	})
 }
 

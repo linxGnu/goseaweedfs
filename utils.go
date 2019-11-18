@@ -14,8 +14,7 @@ import (
 
 func createWorkerPool() *workerpool.Pool {
 	return workerpool.NewPool(context.Background(), workerpool.Option{
-		NumberWorker:    runtime.NumCPU(),
-		ExpandableLimit: int32(runtime.NumCPU()),
+		NumberWorker: runtime.NumCPU() << 1,
 	})
 }
 
