@@ -1,4 +1,4 @@
-package model
+package goseaweedfs
 
 // UploadResult contains upload result after put file to SeaweedFS
 // Raw response: {"name":"go1.8.3.linux-amd64.tar.gz","size":82565628,"error":""}

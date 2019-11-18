@@ -1,31 +1,34 @@
 language: go
 
 go:
-- 1.8
+  - 1.11
+  - 1.12
+  - 1.13
 
 env:
   global:
-  - GOSWFS_MASTER_URL="localhost:8898"
-  - GOSWFS_SCHEME="http"
-  - GOSWFS_MEDIUM_FILE="/home/travis/0.76.tar.gz"
-  - GOSWFS_SMALL_FILE="/home/travis/gopath/src/github.com/linxGnu/goseaweedfs/seaweed.go"
-  - GOSWFS_FILER_URL="localhost:7788"
+    - GOSWFS_MASTER_URL="http://localhost:8888"
+    - GOSWFS_MEDIUM_FILE="/home/travis/gopath/src/github.com/linxGnu/goseaweedfs/seaweed.go"
+    - GOSWFS_SMALL_FILE="/home/travis/gopath/src/github.com/linxGnu/goseaweedfs/utils.go"
+    - GOSWFS_FILER_URL="http://localhost:7788"
 
 before_script:
-- go get -u github.com/rancher/trash
-- go get github.com/mattn/goveralls
-- cd $HOME
-- mkdir -p $HOME/gopath/src/github.com/chrislusf/seaweedfs
-- mkdir -p /tmp/sw/master/metadata
-- mkdir -p /tmp/sw/volume1/data
-- mkdir -p /tmp/sw/filer
-- wget https://github.com/chrislusf/seaweedfs/archive/0.76.tar.gz && tar xzf 0.76.tar.gz && mv seaweedfs-0.76/weed $HOME/gopath/src/github.com/chrislusf/seaweedfs/
-- cd $HOME/gopath/src/github.com/chrislusf/seaweedfs/weed && rm glide.yaml && trash -u && trash && go build && mv weed $HOME/
-- rm -rf $HOME/gopath/src/github.com/chrislusf
-- cd $HOME
-- ./weed master -defaultReplication="000" -ip="localhost" -ip.bind="0.0.0.0" -port="8898" -maxCpu=2 -mdir="/tmp/sw/master/metadata" -volumePreallocate -volumeSizeLimitMB="1024" -whiteList="localhost,127.0.0.1,::1" &
-- ./weed volume -dataCenter="dc1" -rack="rack1" -ip="localhost" -ip.bind="0.0.0.0" -port="8899" -dir="/tmp/sw/volume1/data" -images.fix.orientation="false" -index="leveldb" -max=50 -maxCpu=2 -mserver="localhost:8898" -whiteList="localhost,127.0.0.1,::1" &
-- ./weed filer -ip='localhost' -port=7788 -dir='/tmp/sw/filer' -master='localhost:8898' &
-- cd $HOME/gopath/src/github.com/linxGnu/goseaweedfs
+  - go get -u github.com/mattn/goveralls
+  - cd $HOME
+  - mkdir -p $HOME/gopath/src/github.com/chrislusf/seaweedfs
+  - mkdir -p /tmp/sw/master/metadata
+  - mkdir -p /tmp/sw/volume1/data
+  - mkdir -p /tmp/sw/filer
+  - wget https://github.com/chrislusf/seaweedfs/releases/download/1.44/linux_amd64.tar.gz && tar xzf linux_amd64.tar.gz && rm -rf linux_amd64.tar.gz
+  - cd $HOME
+  - ./weed master -defaultReplication="000" -ip="localhost" -ip.bind="0.0.0.0" -port=8888 -mdir="/tmp/sw/master/metadata" -volumePreallocate -volumeSizeLimitMB="1024" -whiteList="localhost,127.0.0.1,::1" &
+  - sleep 5
+  - ./weed volume -dataCenter="dc1" -rack="rack1" -ip="localhost" -ip.bind="0.0.0.0" -port=8899 -dir="/tmp/sw/volume1/data" -images.fix.orientation="false" -index="leveldb" -max=50 -mserver="localhost:8888" -whiteList="localhost,127.0.0.1,::1" &
+  - sleep 5
+  - ./weed filer -ip='localhost' -port=7788 -master='localhost:8888' &
+  - sleep 5
+  - ./weed mount -filer=localhost:7788 -dir=/tmp/sw/filer &
+  - sleep 5
+  - cd $HOME/gopath/src/github.com/linxGnu/goseaweedfs
 
-script: go test -v ./... && $HOME/gopath/bin/goveralls -service=travis-ci
+script: GO111MODULE=on go test -v && $HOME/gopath/bin/goveralls -service=travis-ci

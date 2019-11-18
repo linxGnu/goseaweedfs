@@ -1,4 +1,4 @@
-package model
+package goseaweedfs
 
 import "math/rand"
 
@@ -31,7 +31,6 @@ func (c VolumeLocations) RandomPickForRead() *VolumeLocation {
 
 // LookupResult the result of looking up volume. According to https://github.com/chrislusf/seaweedfs/wiki/Master-Server-API
 type LookupResult struct {
-	VolumeID        string          `json:"volumeId,omitempty"`
 	VolumeLocations VolumeLocations `json:"locations,omitempty"`
 	Error           string          `json:"error,omitempty"`
 }

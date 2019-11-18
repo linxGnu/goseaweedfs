@@ -1,4 +1,4 @@
-package model
+package goseaweedfs
 
 import (
 	"io"
@@ -11,10 +11,9 @@ import (
 
 // FilePart file wrapper with reader and some metadata
 type FilePart struct {
-	Reader     io.Reader
+	Reader     io.ReadCloser
 	FileName   string
 	FileSize   int64
-	IsGzipped  bool
 	MimeType   string
 	ModTime    int64 //in seconds
 	Collection string
@@ -32,9 +31,15 @@ type FilePart struct {
 	FileID string
 }
 
+// Close underlying openned file.
+func (f *FilePart) Close() (err error) {
+	err = f.Reader.Close()
+	return
+}
+
 // NewFilePartFromReader new file part from file reader.
 // fileName and fileSize must be known
-func NewFilePartFromReader(reader io.Reader, fileName string, fileSize int64) *FilePart {
+func NewFilePartFromReader(reader io.ReadCloser, fileName string, fileSize int64) *FilePart {
 	ret := FilePart{
 		Reader:   reader,
 		FileSize: fileSize,
@@ -45,21 +50,21 @@ func NewFilePartFromReader(reader io.Reader, fileName string, fileSize int64) *F
 	if ext != "" {
 		ret.MimeType = mime.TypeByExtension(ext)
 	}
-	ret.IsGzipped = ext == ".gz"
 
 	return &ret
 }
 
 // NewFilePart new file path from real file dir
 func NewFilePart(fullPathFilename string) (*FilePart, error) {
-	ret := FilePart{}
-
 	fh, openErr := os.Open(fullPathFilename)
 	if openErr != nil {
 		return nil, openErr
 	}
-	ret.Reader = fh
-	ret.FileName = filepath.Base(fullPathFilename)
+
+	ret := FilePart{
+		Reader:   fh,
+		FileName: filepath.Base(fullPathFilename),
+	}
 
 	if fi, fiErr := fh.Stat(); fiErr == nil {
 		ret.ModTime = fi.ModTime().UTC().Unix()
@@ -72,18 +77,26 @@ func NewFilePart(fullPathFilename string) (*FilePart, error) {
 	if ext != "" {
 		ret.MimeType = mime.TypeByExtension(ext)
 	}
-	ret.IsGzipped = ext == ".gz"
 
 	return &ret, nil
 }
 
 // NewFileParts create many file part at once.
 func NewFileParts(fullPathFilenames []string) (ret []*FilePart, err error) {
-	ret = make([]*FilePart, len(fullPathFilenames))
-	for index, file := range fullPathFilenames {
-		if ret[index], err = NewFilePart(file); err != nil {
-			return
+	ret = make([]*FilePart, 0, len(fullPathFilenames))
+	for _, file := range fullPathFilenames {
+		if fp, err := NewFilePart(file); err == nil {
+			ret = append(ret, fp)
+		} else {
+			closeFileParts(ret)
+			return nil, err
 		}
 	}
 	return
+}
+
+func closeFileParts(fps []*FilePart) {
+	for i := range fps {
+		_ = fps[i].Close()
+	}
 }
