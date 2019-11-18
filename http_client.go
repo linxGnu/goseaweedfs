@@ -9,7 +9,6 @@ import (
 	"mime/multipart"
 	"net/http"
 	"net/textproto"
-	"net/url"
 	"path/filepath"
 	"strings"
 
@@ -35,8 +34,8 @@ func (c *httpClient) Close() (err error) {
 	return
 }
 
-func (c *httpClient) get(base *url.URL, path string, args url.Values, header map[string]string) (body []byte, statusCode int, err error) {
-	req, err := http.NewRequest(http.MethodGet, encodeURI(*base, path, args), nil)
+func (c *httpClient) get(url string, header map[string]string) (body []byte, statusCode int, err error) {
+	req, err := http.NewRequest(http.MethodGet, url, nil)
 	if err == nil {
 		for k, v := range header {
 			req.Header.Set(k, v)
@@ -52,19 +51,10 @@ func (c *httpClient) get(base *url.URL, path string, args url.Values, header map
 	return
 }
 
-func (c *httpClient) delete(url string, recursive bool) (statusCode int, err error) {
+func (c *httpClient) delete(url string) (statusCode int, err error) {
 	req, err := http.NewRequest(http.MethodDelete, url, nil)
 	if err != nil {
 		return
-	}
-
-	if recursive {
-		query := req.URL.Query()
-		query.Set("recursive", "true")
-		req.URL.RawQuery = query.Encode()
-
-		// trigger to use req.URL
-		req.Host = ""
 	}
 
 	r, err := c.client.Do(req)
@@ -94,13 +84,12 @@ func (c *httpClient) delete(url string, recursive bool) (statusCode int, err err
 	return
 }
 
-// Download file from url.
-func (c *httpClient) Download(fileURL string, callback func(io.Reader) error) (filename string, err error) {
-	r, err := c.client.Get(fileURL)
+func (c *httpClient) download(url string, callback func(io.Reader) error) (filename string, err error) {
+	r, err := c.client.Get(url)
 	if err == nil {
 		if r.StatusCode != http.StatusOK {
 			drainAndClose(r.Body)
-			err = fmt.Errorf("Download %s but error. Status:%s", fileURL, r.Status)
+			err = fmt.Errorf("Download %s but error. Status:%s", url, r.Status)
 			return
 		}
 
@@ -122,7 +111,7 @@ func (c *httpClient) Download(fileURL string, callback func(io.Reader) error) (f
 	return
 }
 
-func (c *httpClient) upload(uploadURL string, filename string, fileReader io.Reader, mtype string) (respBody []byte, statusCode int, err error) {
+func (c *httpClient) upload(url string, filename string, fileReader io.Reader, mtype string) (respBody []byte, statusCode int, err error) {
 	r, w := io.Pipe()
 
 	// create multipart writer
@@ -159,7 +148,7 @@ func (c *httpClient) upload(uploadURL string, filename string, fileReader io.Rea
 	c.workers.Do(task)
 
 	var resp *http.Response
-	if resp, err = c.client.Post(uploadURL, mw.FormDataContentType(), r); err == nil {
+	if resp, err = c.client.Post(url, mw.FormDataContentType(), r); err == nil {
 		if respBody, statusCode, err = readAll(resp); err == nil {
 			result := <-task.Result()
 			err = result.Err
