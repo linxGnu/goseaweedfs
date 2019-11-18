@@ -145,12 +145,9 @@ func (c *Seaweed) Filers() []*Filer {
 
 // Grow pre-Allocate Volumes.
 func (c *Seaweed) Grow(count int, collection, replication, dataCenter string) error {
-	args := make(url.Values)
+	args := normalize(nil, collection, "")
 	if count > 0 {
 		args.Set(ParamGrowCount, strconv.Itoa(count))
-	}
-	if collection != "" {
-		args.Set(ParamGrowCollection, collection)
 	}
 	if replication != "" {
 		args.Set(ParamGrowReplication, replication)
@@ -327,7 +324,7 @@ func (c *Seaweed) UploadFilePart(f *FilePart) (cm *ChunkManifest, fileID string,
 	}
 
 	if f.Server == "" {
-		if f.Server, err = c.LookupServerByFileID(f.FileID, url.Values{ParamCollection: []string{f.Collection}}, false); err != nil {
+		if f.Server, err = c.LookupServerByFileID(f.FileID, normalize(nil, f.Collection, f.TTL), false); err != nil {
 			return
 		}
 	}
