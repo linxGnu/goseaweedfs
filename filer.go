@@ -37,10 +37,11 @@ type FilerUploadResult struct {
 
 // NewFiler new filer with filer server's url
 func NewFiler(u string, client *http.Client) (f *Filer, err error) {
-	base, err := url.Parse(u)
+	base, err := parseURI(u)
 	if err != nil {
 		return
 	}
+
 	f = &Filer{
 		base:   base,
 		client: newHttpClient(client),

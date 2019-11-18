@@ -90,38 +90,48 @@ const (
 
 // Seaweed client containing almost features/operations to interact with SeaweedFS
 type Seaweed struct {
-	Master    string
-	Filers    []*Filer
-	Scheme    string
-	ChunkSize int64
+	master    *url.URL
+	filers    []*Filer
+	chunkSize int64
 	client    *httpClient
 	cache     *cache.Cache
 }
 
 // NewSeaweed create new seaweed with default
-func NewSeaweed(scheme string, master string, filers []string, chunkSize int64, client *http.Client) (res *Seaweed, err error) {
+func NewSeaweed(masterURL string, filers []string, chunkSize int64, client *http.Client) (res *Seaweed, err error) {
+	u, err := parseURI(masterURL)
+	if err != nil {
+		return
+	}
+
 	res = &Seaweed{
-		Master:    master,
-		Scheme:    scheme,
+		master:    u,
 		client:    newHttpClient(client),
 		cache:     cache.New(cacheDuration, cacheDuration*2),
-		ChunkSize: chunkSize,
+		chunkSize: chunkSize,
 	}
 
 	if len(filers) > 0 {
-		res.Filers = make([]*Filer, len(filers))
+		res.filers = make([]*Filer, 0, len(filers))
 		for i := range filers {
-			if res.Filers[i], err = NewFiler(filers[i], client); err != nil {
-				_ = res.client.Close()
+			var filer *Filer
+			filer, err = NewFiler(filers[i], client)
+			if err != nil {
 				return
 			}
+			res.filers = append(res.filers, filer)
 		}
 	}
 
 	return
 }
 
-// Grow pre-Allocate Volumes
+// Filers returns initialized filer(s).
+func (c *Seaweed) Filers() []*Filer {
+	return c.filers
+}
+
+// Grow pre-Allocate Volumes.
 func (c *Seaweed) Grow(count int, collection, replication, dataCenter string) error {
 	args := make(url.Values)
 	if count > 0 {
@@ -141,7 +151,7 @@ func (c *Seaweed) Grow(count int, collection, replication, dataCenter string) er
 
 // GrowArgs pre-Allocate volumes with args.
 func (c *Seaweed) GrowArgs(args url.Values) (err error) {
-	_, _, err = c.client.get(c.Scheme, c.Master, "/vol/grow", args)
+	_, _, err = c.client.get(c.master, "/vol/grow", args)
 	return
 }
 
@@ -180,7 +190,7 @@ func (c *Seaweed) doLookup(volID string, args url.Values) (result *LookupResult,
 	}
 	args.Set(ParamLookupVolumeID, volID)
 
-	jsonBlob, _, err := c.client.getWithURL(makeURL(c.Scheme, c.Master, "/dir/lookup", args))
+	jsonBlob, _, err := c.client.get(c.master, "/dir/lookup", args)
 	if err == nil {
 		result = &LookupResult{}
 		if err = json.Unmarshal(jsonBlob, result); err == nil {
@@ -193,7 +203,7 @@ func (c *Seaweed) doLookup(volID string, args url.Values) (result *LookupResult,
 	return
 }
 
-// LookupServerByFileID lookup server by fileID
+// LookupServerByFileID lookup server by file id.
 func (c *Seaweed) LookupServerByFileID(fileID string, args url.Values, readonly bool) (server string, err error) {
 	var parts []string
 	if strings.Contains(fileID, ",") {
@@ -224,27 +234,30 @@ func (c *Seaweed) LookupServerByFileID(fileID string, args url.Values, readonly 
 	return
 }
 
-// LookupFileID lookup file by id
+// LookupFileID lookup file by id.
 func (c *Seaweed) LookupFileID(fileID string, args url.Values, readonly bool) (fullURL string, err error) {
 	u, err := c.LookupServerByFileID(fileID, args, readonly)
 	if err == nil {
-		fullURL = makeURL(c.Scheme, u, fileID, nil)
+		base := *c.master
+		base.Host = u
+		base.Path = fileID
+		fullURL = base.String()
 	}
 	return
 }
 
-// GC force Garbage Collection
+// GC force Garbage Collection.
 func (c *Seaweed) GC(threshold float64) (err error) {
 	args := url.Values{
 		"garbageThreshold": []string{strconv.FormatFloat(threshold, 'f', -1, 64)},
 	}
-	_, _, err = c.client.get(c.Scheme, c.Master, "/vol/vacuum", args)
+	_, _, err = c.client.get(c.master, "/vol/vacuum", args)
 	return
 }
 
-// Status check System Status
+// Status check System Status.
 func (c *Seaweed) Status() (result *SystemStatus, err error) {
-	data, _, err := c.client.get(c.Scheme, c.Master, "/dir/status", nil)
+	data, _, err := c.client.get(c.master, "/dir/status", nil)
 	if err == nil {
 		result = &SystemStatus{}
 		err = json.Unmarshal(data, result)
@@ -252,9 +265,9 @@ func (c *Seaweed) Status() (result *SystemStatus, err error) {
 	return
 }
 
-// ClusterStatus get cluster status
+// ClusterStatus get cluster status.
 func (c *Seaweed) ClusterStatus() (result *ClusterStatus, err error) {
-	data, _, err := c.client.get(c.Scheme, c.Master, "/cluster/status", nil)
+	data, _, err := c.client.get(c.master, "/cluster/status", nil)
 	if err == nil {
 		result = &ClusterStatus{}
 		err = json.Unmarshal(data, result)
@@ -264,7 +277,7 @@ func (c *Seaweed) ClusterStatus() (result *ClusterStatus, err error) {
 
 // Assign do assign api.
 func (c *Seaweed) Assign() (result *AssignResult, err error) {
-	jsonBlob, _, err := c.client.getWithURL(makeURL(c.Scheme, c.Master, "/dir/assign", nil))
+	jsonBlob, _, err := c.client.get(c.master, "/dir/assign", nil)
 	if err == nil {
 		result = &AssignResult{}
 		if err = json.Unmarshal(jsonBlob, result); err != nil {
@@ -291,7 +304,7 @@ func (c *Seaweed) Submit(filePath string, collection, ttl string) (result *Submi
 
 // SubmitFilePart directly to master.
 func (c *Seaweed) SubmitFilePart(f *FilePart, args url.Values) (result *SubmitResult, err error) {
-	data, _, err := c.client.upload(makeURL(c.Scheme, c.Master, "/submit", args), f.FileName, f.Reader, f.IsGzipped, f.MimeType)
+	data, _, err := c.client.upload(encodeURI(*c.master, "/submit", args), f.FileName, f.Reader, f.IsGzipped, f.MimeType)
 	if err == nil {
 		result = &SubmitResult{}
 		err = json.Unmarshal(data, result)
@@ -318,7 +331,7 @@ func (c *Seaweed) UploadFile(filePath string, collection, ttl string) (cm *Chunk
 	return
 }
 
-// UploadFilePart upload a file part
+// UploadFilePart uploads a file part.
 func (c *Seaweed) UploadFilePart(f *FilePart) (cm *ChunkManifest, fileID string, err error) {
 	if f.FileID == "" {
 		res, err := c.Assign()
@@ -335,8 +348,8 @@ func (c *Seaweed) UploadFilePart(f *FilePart) (cm *ChunkManifest, fileID string,
 	}
 
 	baseName := path.Base(f.FileName)
-	if c.ChunkSize > 0 && f.FileSize > c.ChunkSize {
-		chunks := f.FileSize/c.ChunkSize + 1
+	if c.chunkSize > 0 && f.FileSize > c.chunkSize {
+		chunks := f.FileSize/c.chunkSize + 1
 
 		cm = &ChunkManifest{
 			Name:   baseName,
@@ -355,7 +368,7 @@ func (c *Seaweed) UploadFilePart(f *FilePart) (cm *ChunkManifest, fileID string,
 			}
 
 			cm.Chunks[i] = &ChunkInfo{
-				Offset: i * c.ChunkSize,
+				Offset: i * c.chunkSize,
 				Size:   int64(count),
 				Fid:    id,
 			}
@@ -371,7 +384,7 @@ func (c *Seaweed) UploadFilePart(f *FilePart) (cm *ChunkManifest, fileID string,
 		}
 		args.Set("Content-Type", "multipart/form-data")
 
-		_, _, err = c.client.upload(makeURL(c.Scheme, f.Server, f.FileID, args), baseName, f.Reader, f.IsGzipped, f.MimeType)
+		_, _, err = c.client.upload(encodeURI(*c.master, f.FileID, args), baseName, f.Reader, f.IsGzipped, f.MimeType)
 	}
 
 	if err == nil {
@@ -381,7 +394,7 @@ func (c *Seaweed) UploadFilePart(f *FilePart) (cm *ChunkManifest, fileID string,
 	return
 }
 
-// BatchUploadFiles batch upload files
+// BatchUploadFiles batch uploads files.
 func (c *Seaweed) BatchUploadFiles(files []string, collection, ttl string) (results []*SubmitResult, err error) {
 	fps, err := NewFileParts(files)
 	if err == nil {
@@ -391,7 +404,7 @@ func (c *Seaweed) BatchUploadFiles(files []string, collection, ttl string) (resu
 	return
 }
 
-// BatchUploadFileParts upload multiple file parts at once
+// BatchUploadFileParts uploads multiple file parts at once.
 func (c *Seaweed) BatchUploadFileParts(files []*FilePart, collection string, ttl string) ([]*SubmitResult, error) {
 	results := make([]*SubmitResult, len(files))
 	for index, file := range files {
@@ -435,18 +448,18 @@ func (c *Seaweed) BatchUploadFileParts(files []*FilePart, collection string, ttl
 	return results, nil
 }
 
-// Replace with file reader
-func (c *Seaweed) Replace(fileID string, fileReader io.Reader, fileName string, size int64, collection, ttl string, deleteFirst bool) (err error) {
-	fp := NewFilePartFromReader(ioutil.NopCloser(fileReader), fileName, size)
+// Replace file content with new one.
+func (c *Seaweed) Replace(fileID string, newContent io.Reader, fileName string, size int64, collection, ttl string, deleteFirst bool) (err error) {
+	fp := NewFilePartFromReader(ioutil.NopCloser(newContent), fileName, size)
 	fp.Collection, fp.TTL = collection, ttl
 	fp.FileID = fileID
 	_, err = c.ReplaceFilePart(fp, deleteFirst)
 	return
 }
 
-// ReplaceFile replace file by fileID with local filePath
-func (c *Seaweed) ReplaceFile(fileID, filePath string, deleteFirst bool) (err error) {
-	fp, err := NewFilePart(filePath)
+// ReplaceFile replaces file with local file.
+func (c *Seaweed) ReplaceFile(fileID, localFilePath string, deleteFirst bool) (err error) {
+	fp, err := NewFilePart(localFilePath)
 	if err == nil {
 		fp.FileID = fileID
 		_, err = c.ReplaceFilePart(fp, deleteFirst)
@@ -455,7 +468,7 @@ func (c *Seaweed) ReplaceFile(fileID, filePath string, deleteFirst bool) (err er
 	return
 }
 
-// ReplaceFilePart replace file part
+// ReplaceFilePart replaces file part.
 func (c *Seaweed) ReplaceFilePart(f *FilePart, deleteFirst bool) (fileID string, err error) {
 	if deleteFirst && f.FileID != "" {
 		if err = c.DeleteFile(f.FileID, url.Values{ParamCollection: []string{f.Collection}}); err == nil {
@@ -472,11 +485,14 @@ func (c *Seaweed) uploadChunk(f *FilePart, filename string) (assignResult *Assig
 	if err == nil {
 		fileID = assignResult.FileID
 
+		base := *c.master
+		base.Host = assignResult.URL
+
 		// do upload
 		var v []byte
 		v, _, err = c.client.upload(
-			makeURL(c.Scheme, assignResult.URL, assignResult.FileID, nil),
-			filename, io.LimitReader(f.Reader, c.ChunkSize),
+			encodeURI(base, assignResult.FileID, nil),
+			filename, io.LimitReader(f.Reader, c.chunkSize),
 			false, "application/octet-stream")
 
 		if err == nil {
@@ -502,11 +518,12 @@ func (c *Seaweed) uploadManifest(f *FilePart, manifest *ChunkManifest) (err erro
 		}
 		args.Set("cm", "true")
 
-		_, _, err = c.client.upload(makeURL(c.Scheme, f.Server, f.FileID, args), manifest.Name, bufReader, false, "application/json")
+		_, _, err = c.client.upload(encodeURI(*c.master, f.FileID, args), manifest.Name, bufReader, false, "application/json")
 	}
 	return
 }
 
+// Download file by id.
 func (c *Seaweed) Download(fileID string, args url.Values, callback func(io.Reader) error) (fileName string, err error) {
 	fileURL, err := c.LookupFileID(fileID, args, true)
 	if err == nil {
@@ -515,7 +532,7 @@ func (c *Seaweed) Download(fileID string, args url.Values, callback func(io.Read
 	return
 }
 
-// DeleteChunks concurrently delete chunks
+// DeleteChunks concurrently delete chunks.
 func (c *Seaweed) DeleteChunks(cm *ChunkManifest, args url.Values) (err error) {
 	if cm == nil || len(cm.Chunks) == 0 {
 		return nil
@@ -543,7 +560,7 @@ func (c *Seaweed) DeleteChunks(cm *ChunkManifest, args url.Values) (err error) {
 	return nil
 }
 
-// DeleteFile by fileID
+// DeleteFile by id.
 func (c *Seaweed) DeleteFile(fileID string, args url.Values) (err error) {
 	fileURL, err := c.LookupFileID(fileID, args, false)
 	if err == nil {

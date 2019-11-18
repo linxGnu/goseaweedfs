@@ -8,16 +8,20 @@ import (
 	"strings"
 )
 
-func makeURL(scheme, host, path string, args url.Values) string {
-	u := url.URL{
-		Scheme: scheme,
-		Host:   host,
-		Path:   path,
+func parseURI(uri string) (u *url.URL, err error) {
+	u, err = url.Parse(uri)
+	if err == nil && u.Scheme == "" {
+		u.Scheme = "http"
 	}
+	return
+}
+
+func encodeURI(base url.URL, path string, args url.Values) string {
+	base.Path = path
 	if args != nil {
-		u.RawQuery = args.Encode()
+		base.RawQuery = args.Encode()
 	}
-	return u.String()
+	return base.String()
 }
 
 func valid(c rune) bool {

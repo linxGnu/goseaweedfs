@@ -40,22 +40,10 @@ func (c *httpClient) Close() error {
 	return nil
 }
 
-func (c *httpClient) get(scheme, host, path string, params url.Values) (body []byte, statusCode int, err error) {
+func (c *httpClient) get(base *url.URL, path string, params url.Values) (body []byte, statusCode int, err error) {
 	params = normalize(params)
-	return c.getWithURL(makeURL(scheme, host, path, params))
-}
 
-func (c *httpClient) getWithHeaders(fullURL string, headers map[string]string) (body []byte, statusCode int, err error) {
-	req, err := http.NewRequest(http.MethodGet, fullURL, nil)
-	if err != nil {
-		return
-	}
-
-	for k, v := range headers {
-		req.Header.Set(k, v)
-	}
-
-	r, err := c.client.Do(req)
+	r, err := c.client.Get(encodeURI(*base, path, params))
 	if err == nil {
 		body, statusCode, err = readAll(r)
 	}
@@ -63,12 +51,19 @@ func (c *httpClient) getWithHeaders(fullURL string, headers map[string]string) (
 	return
 }
 
-func (c *httpClient) getWithURL(fullURL string) (body []byte, statusCode int, err error) {
-	r, err := c.client.Get(fullURL)
+func (c *httpClient) getWithHeaders(fullURL string, headers map[string]string) (body []byte, statusCode int, err error) {
+	req, err := http.NewRequest(http.MethodGet, fullURL, nil)
 	if err == nil {
-		body, statusCode, err = readAll(r)
-	}
+		for k, v := range headers {
+			req.Header.Set(k, v)
+		}
 
+		var r *http.Response
+		r, err = c.client.Do(req)
+		if err == nil {
+			body, statusCode, err = readAll(r)
+		}
+	}
 	return
 }
 

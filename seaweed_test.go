@@ -1,7 +1,6 @@
 // The following environment variables, if set, will be used:
 //
 //  * GOSWFS_MASTER_URL
-//  * GOSWFS_SCHEME
 //  * GOSWFS_MEDIUM_FILE
 //  * GOSWFS_SMALL_FILE
 //  * GOSWFS_FILER_URL
@@ -29,17 +28,12 @@ var MediumFile, SmallFile string
 func init() {
 	// check master url
 	if masterURL := os.Getenv("GOSWFS_MASTER_URL"); masterURL != "" {
-		scheme := os.Getenv("GOSWFS_SCHEME")
-		if scheme == "" {
-			scheme = "http"
-		}
-
 		var filer []string
 		if _filer := os.Getenv("GOSWFS_FILER_URL"); _filer != "" {
 			filer = []string{_filer}
 		}
 
-		sw, _ = NewSeaweed(scheme, masterURL, filer, 2*1024*1024, &http.Client{Timeout: 5 * time.Minute})
+		sw, _ = NewSeaweed(masterURL, filer, 2*1024*1024, &http.Client{Timeout: 5 * time.Minute})
 	}
 
 	MediumFile = os.Getenv("GOSWFS_MEDIUM_FILE")
@@ -158,7 +152,7 @@ func TestDeleteChunks(t *testing.T) {
 
 func TestFiler(t *testing.T) {
 	// test with prefix /
-	filer := sw.Filers[0]
+	filer := sw.filers[0]
 
 	_, err := filer.Upload(SmallFile, "js/test.txt", "", "")
 	require.Nil(t, err)
@@ -182,7 +176,7 @@ func TestFiler(t *testing.T) {
 	require.Nil(t, err)
 
 	// test with non prefix /
-	filer = sw.Filers[0]
+	filer = sw.filers[0]
 	_, err = filer.Upload(SmallFile, "jsx/test1.jsx", "", "")
 	require.Nil(t, err)
 
