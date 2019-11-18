@@ -101,13 +101,10 @@ func NewSeaweed(masterURL string, filers []string, chunkSize int64, client *http
 		return
 	}
 
-	workers := createWorkerPool()
-
 	c = &Seaweed{
 		master:    u,
-		client:    newHTTPClient(client, workers),
+		client:    newHTTPClient(client),
 		chunkSize: chunkSize,
-		workers:   workers,
 	}
 
 	if len(filers) > 0 {
@@ -116,6 +113,7 @@ func NewSeaweed(masterURL string, filers []string, chunkSize int64, client *http
 			var filer *Filer
 			filer, err = newFiler(filers[i], c.client)
 			if err != nil {
+				_ = c.Close()
 				return
 			}
 			c.filers = append(c.filers, filer)
@@ -123,6 +121,7 @@ func NewSeaweed(masterURL string, filers []string, chunkSize int64, client *http
 	}
 
 	// start underlying workers
+	c.workers = createWorkerPool()
 	c.workers.Start()
 
 	return
@@ -130,7 +129,12 @@ func NewSeaweed(masterURL string, filers []string, chunkSize int64, client *http
 
 // Close underlying daemons.
 func (c *Seaweed) Close() (err error) {
-	c.workers.Stop()
+	if c.workers != nil {
+		c.workers.Stop()
+	}
+	if c.client != nil {
+		err = c.client.Close()
+	}
 	return
 }
 

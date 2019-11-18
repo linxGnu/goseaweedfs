@@ -5,15 +5,12 @@ import (
 	"io"
 	"net/http"
 	"net/url"
-
-	workerpool "github.com/linxGnu/gumble/worker-pool"
 )
 
 // Filer client
 type Filer struct {
-	base    *url.URL
-	client  *httpClient
-	workers *workerpool.Pool
+	base   *url.URL
+	client *httpClient
 }
 
 // FilerUploadResult upload result which responsed from filer server. According to https://github.com/chrislusf/seaweedfs/wiki/Filer-Server-API.
@@ -27,23 +24,7 @@ type FilerUploadResult struct {
 
 // NewFiler new filer with filer server's url
 func NewFiler(u string, client *http.Client) (f *Filer, err error) {
-	base, err := parseURI(u)
-	if err != nil {
-		return
-	}
-
-	workers := createWorkerPool()
-
-	f = &Filer{
-		base:    base,
-		client:  newHTTPClient(client, workers),
-		workers: workers,
-	}
-
-	// start underlying workers
-	f.workers.Start()
-
-	return
+	return newFiler(u, newHTTPClient(client))
 }
 
 func newFiler(u string, client *httpClient) (f *Filer, err error) {
@@ -66,8 +47,8 @@ var dirHeader = map[string]string{
 
 // Close underlying daemons.
 func (f *Filer) Close() (err error) {
-	if f.workers != nil {
-		f.workers.Stop()
+	if f.client != nil {
+		err = f.client.Close()
 	}
 	return
 }

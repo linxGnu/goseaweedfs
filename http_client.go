@@ -21,12 +21,18 @@ type httpClient struct {
 	workers *workerpool.Pool
 }
 
-func newHTTPClient(client *http.Client, workers *workerpool.Pool) *httpClient {
+func newHTTPClient(client *http.Client) *httpClient {
 	c := &httpClient{
 		client:  client,
-		workers: workers,
+		workers: createWorkerPool(),
 	}
+	c.workers.Start()
 	return c
+}
+
+func (c *httpClient) Close() (err error) {
+	c.workers.Stop()
+	return
 }
 
 func (c *httpClient) get(base *url.URL, path string, args url.Values, header map[string]string) (body []byte, statusCode int, err error) {
