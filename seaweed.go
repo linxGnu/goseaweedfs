@@ -13,7 +13,6 @@ import (
 	"path"
 	"strconv"
 	"strings"
-	"sync"
 
 	workerpool "github.com/linxGnu/gumble/worker-pool"
 )
@@ -401,40 +400,43 @@ func (c *Seaweed) BatchUploadFileParts(files []*FilePart, collection string, ttl
 
 	assigned, err := c.Assign()
 	if err != nil {
-		for index := range files {
-			results[index].Error = err.Error()
+		for i := range files {
+			results[i].Error = err.Error()
 		}
 		return results, err
 	}
 
-	var wg sync.WaitGroup
-	for index, file := range files {
+	tasks := make([]*workerpool.Task, 0, len(files))
+	for i, file := range files {
 		file.FileID = assigned.FileID
-		if index > 0 {
-			file.FileID = file.FileID + "_" + strconv.Itoa(index)
+		if i > 0 {
+			file.FileID = file.FileID + "_" + strconv.Itoa(i)
 		}
 		file.Server = assigned.URL
 		file.Collection = collection
 
-		wg.Add(1)
-		task := c.uploadTask(&wg, file, assigned, results[index])
+		task := c.uploadTask(file, assigned, results[i])
 		c.workers.Do(task)
+		tasks = append(tasks, task)
 	}
-	wg.Wait()
+
+	for i := range tasks {
+		r := <-tasks[i].Result()
+		if r.Err != nil {
+			results[i].Error = r.Err.Error()
+		}
+	}
 
 	return results, nil
 }
 
-func (c *Seaweed) uploadTask(wg *sync.WaitGroup, file *FilePart, assigned *AssignResult, result *SubmitResult) *workerpool.Task {
+func (c *Seaweed) uploadTask(file *FilePart, assigned *AssignResult, result *SubmitResult) *workerpool.Task {
 	return workerpool.NewTask(context.Background(), func(ctx context.Context) (interface{}, error) {
 		result.Size = file.FileSize
 		result.FileID = file.FileID
 		result.FileURL = assigned.PublicURL + "/" + file.FileID
-		if _, _, err := c.UploadFilePart(file); err != nil {
-			result.Error = err.Error()
-		}
-		wg.Done()
-		return nil, nil
+		_, _, err := c.UploadFilePart(file)
+		return nil, err
 	})
 }
 
