@@ -51,22 +51,6 @@ func (c *httpClient) get(base *url.URL, path string, params url.Values) (body []
 	return
 }
 
-func (c *httpClient) getWithHeaders(fullURL string, headers map[string]string) (body []byte, statusCode int, err error) {
-	req, err := http.NewRequest(http.MethodGet, fullURL, nil)
-	if err == nil {
-		for k, v := range headers {
-			req.Header.Set(k, v)
-		}
-
-		var r *http.Response
-		r, err = c.client.Do(req)
-		if err == nil {
-			body, statusCode, err = readAll(r)
-		}
-	}
-	return
-}
-
 func (c *httpClient) delete(url string, recursive bool) (statusCode int, err error) {
 	req, err := http.NewRequest(http.MethodDelete, url, nil)
 	if err != nil {
@@ -169,7 +153,9 @@ func (c *httpClient) upload(uploadURL string, filename string, fileReader io.Rea
 
 		part, err := mw.CreatePart(h)
 		if err == nil {
-			_, err = io.Copy(part, fileReader)
+			if _, err = io.Copy(part, fileReader); err == io.EOF {
+				err = nil
+			}
 		}
 
 		if err == nil {

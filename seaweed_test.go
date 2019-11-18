@@ -157,7 +157,7 @@ func TestFiler(t *testing.T) {
 	_, err := filer.Upload(SmallFile, "js/test.txt", "", "")
 	require.Nil(t, err)
 
-	dir, err := filer.Dir("/js/")
+	dir, err := filer.Dir("js")
 	require.Nil(t, err)
 	require.NotZero(t, len(dir.Files))
 

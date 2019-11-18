@@ -49,11 +49,9 @@ func NewFiler(u string, client *http.Client) (f *Filer, err error) {
 	return
 }
 
-// Dir list in directory
+// Dir list in directory.
 func (f *Filer) Dir(path string) (result *Dir, err error) {
-	data, _, err := f.client.getWithHeaders(f.fullpath(path), map[string]string{
-		"Accept": "application/json",
-	})
+	data, _, err := f.client.get(f.base, path, nil)
 	if err != nil {
 		return nil, err
 	}
