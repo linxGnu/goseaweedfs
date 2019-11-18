@@ -163,13 +163,13 @@ func TestFiler(t *testing.T) {
 	require.Nil(t, err)
 
 	// try to download
-	err = filer.Download("/js/test.txt", func(r io.Reader) error {
+	err = filer.Download("/js/test.txt", nil, func(r io.Reader) error {
 		return nil
 	})
 	require.Nil(t, err)
 
 	// try to delete this file
-	err = filer.Delete("/js/test.txt", false)
+	err = filer.Delete("/js/test.txt", nil)
 	require.Nil(t, err)
 
 	// test with non prefix
@@ -181,13 +181,13 @@ func TestFiler(t *testing.T) {
 	require.NotZero(t, len(data))
 
 	// try to download
-	err = filer.Download("js/test1.jsx", func(r io.Reader) error {
+	err = filer.Download("js/test1.jsx", nil, func(r io.Reader) error {
 		return fmt.Errorf("Fake error")
 	})
 	require.NotNil(t, err)
 
 	// try to delete this file
-	err = filer.Delete("js/test1.jsx", true)
+	err = filer.Delete("js/test1.jsx", nil)
 	require.Nil(t, err)
 }
 

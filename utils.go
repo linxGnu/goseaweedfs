@@ -28,7 +28,14 @@ func parseURI(uri string) (u *url.URL, err error) {
 
 func encodeURI(base url.URL, path string, args url.Values) string {
 	base.Path = path
-	base.RawQuery = normalize(args).Encode()
+	query := base.Query()
+	args = normalize(args, "", "")
+	for k, vs := range args {
+		for _, v := range vs {
+			query.Add(k, v)
+		}
+	}
+	base.RawQuery = query.Encode()
 	return base.String()
 }
 
@@ -59,10 +66,19 @@ func drainAndClose(body io.ReadCloser) {
 	_ = body.Close()
 }
 
-func normalize(values url.Values) url.Values {
+func normalize(values url.Values, collection, ttl string) url.Values {
 	if values == nil {
 		values = make(url.Values)
 	}
+
+	if len(collection) > 0 {
+		values.Set(ParamCollection, collection)
+	}
+
+	if len(ttl) > 0 {
+		values.Set(ParamTTL, ttl)
+	}
+
 	return values
 }
 
