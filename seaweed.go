@@ -2,6 +2,7 @@ package goseaweedfs
 
 import (
 	"bytes"
+	"context"
 	"encoding/json"
 	"errors"
 	"fmt"
@@ -10,9 +11,12 @@ import (
 	"net/http"
 	"net/url"
 	"path"
+	"runtime"
 	"strconv"
 	"strings"
 	"sync"
+
+	workerpool "github.com/linxGnu/gumble/worker-pool"
 )
 
 var (
@@ -89,6 +93,7 @@ type Seaweed struct {
 	filers    []*Filer
 	chunkSize int64
 	client    *httpClient
+	workers   *workerpool.Pool
 }
 
 // NewSeaweed create new seaweed client. Master url must be a valid uri (which includes scheme).
@@ -98,17 +103,23 @@ func NewSeaweed(masterURL string, filers []string, chunkSize int64, client *http
 		return
 	}
 
+	workers := workerpool.NewPool(context.Background(), workerpool.Option{
+		NumberWorker:    runtime.NumCPU(),
+		ExpandableLimit: int32(runtime.NumCPU()),
+	})
+
 	res = &Seaweed{
 		master:    u,
-		client:    newHTTPClient(client),
+		client:    newHTTPClient(client, workers),
 		chunkSize: chunkSize,
+		workers:   workers,
 	}
 
 	if len(filers) > 0 {
 		res.filers = make([]*Filer, 0, len(filers))
 		for i := range filers {
 			var filer *Filer
-			filer, err = NewFiler(filers[i], client)
+			filer, err = newFiler(filers[i], res.client)
 			if err != nil {
 				return
 			}
@@ -116,6 +127,15 @@ func NewSeaweed(masterURL string, filers []string, chunkSize int64, client *http
 		}
 	}
 
+	// start underlying workers
+	workers.Start()
+
+	return
+}
+
+// Close underlying daemons.
+func (c *Seaweed) Close() (err error) {
+	c.workers.Stop()
 	return
 }
 
@@ -391,31 +411,36 @@ func (c *Seaweed) BatchUploadFileParts(files []*FilePart, collection string, ttl
 		return results, err
 	}
 
-	wg := sync.WaitGroup{}
+	var wg sync.WaitGroup
 	for index, file := range files {
 		wg.Add(1)
-		go func(wg *sync.WaitGroup, index int, file *FilePart) {
-			file.FileID = ret.FileID
-			if index > 0 {
-				file.FileID = file.FileID + "_" + strconv.Itoa(index)
-			}
-			file.Server = ret.URL
-			file.Collection = collection
-
-			if _, _, err := c.UploadFilePart(file); err != nil {
-				results[index].Error = err.Error()
-			}
-
-			results[index].Size = file.FileSize
-			results[index].FileID = file.FileID
-			results[index].FileURL = ret.PublicURL + "/" + file.FileID
-
-			wg.Done()
-		}(&wg, index, file)
+		c.workers.Do(c.uploadTask(&wg, file, ret, index, collection, results))
 	}
 	wg.Wait()
 
 	return results, nil
+}
+
+func (c *Seaweed) uploadTask(wg *sync.WaitGroup, file *FilePart, ret *AssignResult, index int, collection string, results []*SubmitResult) *workerpool.Task {
+	return workerpool.NewTask(context.Background(), func(ctx context.Context) (interface{}, error) {
+		file.FileID = ret.FileID
+		if index > 0 {
+			file.FileID = file.FileID + "_" + strconv.Itoa(index)
+		}
+		file.Server = ret.URL
+		file.Collection = collection
+
+		if _, _, err := c.UploadFilePart(file); err != nil {
+			results[index].Error = err.Error()
+		}
+
+		results[index].Size = file.FileSize
+		results[index].FileID = file.FileID
+		results[index].FileURL = ret.PublicURL + "/" + file.FileID
+
+		wg.Done()
+		return nil, nil
+	})
 }
 
 // Replace file content with new one.
@@ -507,25 +532,27 @@ func (c *Seaweed) DeleteChunks(cm *ChunkManifest, args url.Values) (err error) {
 		return nil
 	}
 
-	result := make(chan bool, len(cm.Chunks))
+	tasks := make([]*workerpool.Task, 0, len(cm.Chunks))
 	for _, ci := range cm.Chunks {
-		go func(fileID string) {
-			result <- c.DeleteFile(fileID, args) == nil
-		}(ci.Fid)
+		task := c.deleteFileTask(ci.Fid, args)
+		c.workers.Do(task)
+		tasks = append(tasks, task)
 	}
 
-	isOk := true
-	for i := 0; i < len(cm.Chunks); i++ {
-		if r := <-result; !r {
-			isOk = false
+	for i := range tasks {
+		if r := <-tasks[i].Result(); r.Err != nil {
+			err = r.Err
+			return
 		}
 	}
 
-	if !isOk {
-		err = fmt.Errorf("Not all chunks deleted")
-	}
-
 	return
+}
+
+func (c *Seaweed) deleteFileTask(fileID string, args url.Values) *workerpool.Task {
+	return workerpool.NewTask(context.Background(), func(ctx context.Context) (interface{}, error) {
+		return nil, c.DeleteFile(fileID, args)
+	})
 }
 
 // DeleteFile by id.

@@ -11,7 +11,6 @@ import (
 	"net/textproto"
 	"net/url"
 	"path/filepath"
-	"runtime"
 	"strings"
 
 	workerpool "github.com/linxGnu/gumble/worker-pool"
@@ -22,20 +21,12 @@ type httpClient struct {
 	workers *workerpool.Pool
 }
 
-func newHTTPClient(client *http.Client) *httpClient {
+func newHTTPClient(client *http.Client, workers *workerpool.Pool) *httpClient {
 	c := &httpClient{
-		client: client,
-		workers: workerpool.NewPool(context.Background(), workerpool.Option{
-			NumberWorker: runtime.NumCPU(),
-		}),
+		client:  client,
+		workers: workers,
 	}
-	c.workers.Start()
 	return c
-}
-
-func (c *httpClient) Close() error {
-	c.workers.Stop()
-	return nil
 }
 
 func (c *httpClient) get(base *url.URL, path string, args url.Values, header map[string]string) (body []byte, statusCode int, err error) {

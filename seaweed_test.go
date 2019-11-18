@@ -36,6 +36,9 @@ func init() {
 		}
 
 		sw, _ = NewSeaweed(masterURL, filer, 2*1024*1024, &http.Client{Timeout: 5 * time.Minute})
+		_ = sw.Close()
+
+		sw, _ = NewSeaweed(masterURL, filer, 2*1024*1024, &http.Client{Timeout: 5 * time.Minute})
 	}
 
 	MediumFile = os.Getenv("GOSWFS_MEDIUM_FILE")

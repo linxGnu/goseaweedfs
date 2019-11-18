@@ -1,16 +1,21 @@
 package goseaweedfs
 
 import (
+	"context"
 	"encoding/json"
 	"io"
 	"net/http"
 	"net/url"
+	"runtime"
+
+	workerpool "github.com/linxGnu/gumble/worker-pool"
 )
 
 // Filer client
 type Filer struct {
-	base   *url.URL
-	client *httpClient
+	base    *url.URL
+	client  *httpClient
+	workers *workerpool.Pool
 }
 
 // FilerUploadResult upload result which responsed from filer server. According to https://github.com/chrislusf/seaweedfs/wiki/Filer-Server-API.
@@ -29,15 +34,47 @@ func NewFiler(u string, client *http.Client) (f *Filer, err error) {
 		return
 	}
 
+	workers := workerpool.NewPool(context.Background(), workerpool.Option{
+		NumberWorker:    runtime.NumCPU(),
+		ExpandableLimit: int32(runtime.NumCPU()),
+	})
+
+	f = &Filer{
+		base:    base,
+		client:  newHTTPClient(client, workers),
+		workers: workers,
+	}
+
+	// start underlying workers
+	workers.Start()
+
+	return
+}
+
+func newFiler(u string, client *httpClient) (f *Filer, err error) {
+	base, err := parseURI(u)
+	if err != nil {
+		return
+	}
+
 	f = &Filer{
 		base:   base,
-		client: newHTTPClient(client),
+		client: client,
 	}
+
 	return
 }
 
 var dirHeader = map[string]string{
 	"Accept": "application/json",
+}
+
+// Close underlying daemons.
+func (f *Filer) Close() (err error) {
+	if f.workers != nil {
+		f.workers.Stop()
+	}
+	return
 }
 
 // Upload a file.
