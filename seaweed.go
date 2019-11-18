@@ -99,22 +99,26 @@ type Seaweed struct {
 }
 
 // NewSeaweed create new seaweed with default
-func NewSeaweed(scheme string, master string, filers []string, chunkSize int64, client *http.Client) *Seaweed {
-	res := &Seaweed{
+func NewSeaweed(scheme string, master string, filers []string, chunkSize int64, client *http.Client) (res *Seaweed, err error) {
+	res = &Seaweed{
 		Master:    master,
 		Scheme:    scheme,
 		client:    newHttpClient(client),
 		cache:     cache.New(cacheDuration, cacheDuration*2),
 		ChunkSize: chunkSize,
 	}
-	if filers != nil {
+
+	if len(filers) > 0 {
 		res.Filers = make([]*Filer, len(filers))
 		for i := range filers {
-			res.Filers[i] = NewFiler(filers[i], res.client)
+			if res.Filers[i], err = NewFiler(filers[i], res.client); err != nil {
+				_ = res.client.Close()
+				return
+			}
 		}
 	}
 
-	return res
+	return
 }
 
 // Grow pre-Allocate Volumes

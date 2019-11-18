@@ -39,7 +39,7 @@ func init() {
 			filer = []string{_filer}
 		}
 
-		sw = NewSeaweed(scheme, masterURL, filer, 2*1024*1024, &http.Client{Timeout: 5 * time.Minute})
+		sw, _ = NewSeaweed(scheme, masterURL, filer, 2*1024*1024, &http.Client{Timeout: 5 * time.Minute})
 	}
 
 	MediumFile = os.Getenv("GOSWFS_MEDIUM_FILE")
@@ -160,8 +160,7 @@ func TestFiler(t *testing.T) {
 	// test with prefix /
 	filer := sw.Filers[0]
 
-	_, err := filer.Upload(SmallFile, "/js/test.txt", "", "")
-	fmt.Println(err)
+	_, err := filer.Upload(SmallFile, "js/test.txt", "", "")
 	require.Nil(t, err)
 
 	dir, err := filer.Dir("/js/")
@@ -179,7 +178,7 @@ func TestFiler(t *testing.T) {
 	require.True(t, contain)
 
 	// try to delete this file
-	err = filer.Delete("/js/test.txt", false)
+	err = filer.Delete("js/test.txt", false)
 	require.Nil(t, err)
 
 	// test with non prefix /

@@ -2,8 +2,7 @@ package goseaweedfs
 
 import (
 	"encoding/json"
-	"path/filepath"
-	"strings"
+	"net/url"
 )
 
 // File structure according to filer API at https://github.com/chrislusf/seaweedfs/wiki/Filer-Server-API.
@@ -21,7 +20,7 @@ type Dir struct {
 
 // Filer client
 type Filer struct {
-	URL        string `json:"url"`
+	base       *url.URL
 	httpClient *httpClient
 }
 
@@ -35,19 +34,23 @@ type FilerUploadResult struct {
 }
 
 // NewFiler new filer with filer server's url
-func NewFiler(url string, httpClient *httpClient) *Filer {
-	if !strings.HasPrefix(url, "http:") && !strings.HasPrefix(url, "https:") {
-		url = "http://" + url
+func NewFiler(u string, httpClient *httpClient) (f *Filer, err error) {
+	base, err := url.Parse(u)
+	if err != nil {
+		return
 	}
-	return &Filer{
-		URL:        url,
+	f = &Filer{
+		base:       base,
 		httpClient: httpClient,
 	}
+	return
 }
 
 // Dir list in directory
-func (f *Filer) Dir(pathname string) (result *Dir, err error) {
-	data, _, err := f.httpClient.getWithHeaders(filepath.Join(f.URL, pathname), map[string]string{"Accept": "application/json"})
+func (f *Filer) Dir(path string) (result *Dir, err error) {
+	data, _, err := f.httpClient.getWithHeaders(f.fullpath(path), map[string]string{
+		"Accept": "application/json",
+	})
 	if err != nil {
 		return nil, err
 	}
@@ -61,14 +64,14 @@ func (f *Filer) Dir(pathname string) (result *Dir, err error) {
 }
 
 // Upload a file.
-func (f *Filer) Upload(filePath, newFilerPath, collection, ttl string) (result *FilerUploadResult, err error) {
+func (f *Filer) Upload(filePath, newPath, collection, ttl string) (result *FilerUploadResult, err error) {
 	fp, err := NewFilePart(filePath)
 	if err == nil {
 		fp.Collection = collection
 		fp.TTL = ttl
 
 		var data []byte
-		data, _, err = f.httpClient.upload(filepath.Join(f.URL, newFilerPath), filePath, fp.Reader, fp.IsGzipped, fp.MimeType)
+		data, _, err = f.httpClient.upload(f.fullpath(newPath), filePath, fp.Reader, fp.IsGzipped, fp.MimeType)
 		if err == nil {
 			result = &FilerUploadResult{}
 			err = json.Unmarshal(data, result)
@@ -80,7 +83,13 @@ func (f *Filer) Upload(filePath, newFilerPath, collection, ttl string) (result *
 }
 
 // Delete a file/dir.
-func (f *Filer) Delete(pathname string, recursive bool) (err error) {
-	_, err = f.httpClient.delete(filepath.Join(f.URL, pathname), recursive)
+func (f *Filer) Delete(path string, recursive bool) (err error) {
+	_, err = f.httpClient.delete(f.fullpath(path), recursive)
 	return
+}
+
+func (f *Filer) fullpath(path string) string {
+	u := *f.base
+	u.Path = path
+	return u.String()
 }
