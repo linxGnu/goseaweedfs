@@ -68,8 +68,6 @@ func TestUploadLookupserverReplaceDeleteFile(t *testing.T) {
 
 		//
 		require.Nil(t, sw.DeleteFile(fID, nil))
-		_, err = sw.LookupFileID(fID, nil, true)
-		require.Equal(t, ErrFileNotFound, err)
 
 		// test upload file
 		fh, err := os.Open(MediumFile)

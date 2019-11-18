@@ -18,9 +18,7 @@ func parseURI(uri string) (u *url.URL, err error) {
 
 func encodeURI(base url.URL, path string, args url.Values) string {
 	base.Path = path
-	if args != nil {
-		base.RawQuery = args.Encode()
-	}
+	base.RawQuery = normalize(args).Encode()
 	return base.String()
 }
 

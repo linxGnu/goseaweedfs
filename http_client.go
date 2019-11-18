@@ -38,10 +38,8 @@ func (c *httpClient) Close() error {
 	return nil
 }
 
-func (c *httpClient) get(base *url.URL, path string, params url.Values, header map[string]string) (body []byte, statusCode int, err error) {
-	params = normalize(params)
-
-	req, err := http.NewRequest(http.MethodGet, encodeURI(*base, path, params), nil)
+func (c *httpClient) get(base *url.URL, path string, args url.Values, header map[string]string) (body []byte, statusCode int, err error) {
+	req, err := http.NewRequest(http.MethodGet, encodeURI(*base, path, args), nil)
 	if err == nil {
 		for k, v := range header {
 			req.Header.Set(k, v)

@@ -2,6 +2,7 @@ package goseaweedfs
 
 import (
 	"encoding/json"
+	"fmt"
 	"io"
 	"net/http"
 	"net/url"
@@ -59,6 +60,7 @@ func (f *Filer) Dir(path string, args url.Values) (result *Dir, err error) {
 	if err == nil {
 		result = &Dir{}
 		err = json.Unmarshal(data, result)
+		fmt.Println(string(data))
 	}
 	return
 }
