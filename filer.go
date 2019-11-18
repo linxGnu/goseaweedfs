@@ -15,9 +15,9 @@ type File struct {
 
 // Dir directory of filer. According to https://github.com/chrislusf/seaweedfs/wiki/Filer-Server-API.
 type Dir struct {
-	Path    string `json:"Directory"`
-	Files   []*File
-	Subdirs []*File `json:"Subdirectories"`
+	Directory      string  `json:"Directory"`
+	Files          []*File `json:"Files"`
+	Subdirectories []*File `json:"Subdirectories"`
 }
 
 // Filer client
@@ -44,8 +44,25 @@ func NewFiler(u string, client *http.Client) (f *Filer, err error) {
 
 	f = &Filer{
 		base:   base,
-		client: newHttpClient(client),
+		client: newHTTPClient(client),
 	}
+	return
+}
+
+var dirHeader = map[string]string{
+	"Accept": "application/json",
+}
+
+// Dir list in directory.
+func (f *Filer) Dir(path string, args url.Values) (result *Dir, err error) {
+	data, _, err := f.client.get(f.base, path, args, dirHeader)
+	if err != nil {
+		return nil, err
+	}
+
+	result = &Dir{}
+	err = json.Unmarshal(data, result)
+
 	return
 }
 

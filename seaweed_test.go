@@ -169,17 +169,25 @@ func TestFiler(t *testing.T) {
 
 	// test with non prefix
 	filer = sw.filers[0]
-	_, err = filer.Upload(SmallFile, "jsx/test1.jsx", "", "")
+	_, err = filer.Upload(SmallFile, "js/test1.jsx", "", "")
 	require.Nil(t, err)
 
+	// check dir
+	dir, err := filer.Dir("js", nil)
+	require.Nil(t, err)
+	require.NotZero(t, len(dir.Files))
+	for _, v := range dir.Files {
+		require.Equal(t, "test1.jsx", v.Name)
+	}
+
 	// try to download
-	err = filer.Download("jsx/test1.jsx", func(r io.Reader) error {
+	err = filer.Download("js/test1.jsx", func(r io.Reader) error {
 		return fmt.Errorf("Fake error")
 	})
 	require.NotNil(t, err)
 
 	// try to delete this file
-	err = filer.Delete("jsx/test1.jsx", true)
+	err = filer.Delete("js/test1.jsx", true)
 	require.Nil(t, err)
 }
 

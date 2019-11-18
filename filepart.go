@@ -31,6 +31,7 @@ type FilePart struct {
 	FileID string
 }
 
+// Close underlying openned file.
 func (f *FilePart) Close() (err error) {
 	err = f.Reader.Close()
 	return

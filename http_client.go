@@ -22,7 +22,7 @@ type httpClient struct {
 	workers *workerpool.Pool
 }
 
-func newHttpClient(client *http.Client) *httpClient {
+func newHTTPClient(client *http.Client) *httpClient {
 	c := &httpClient{
 		client: client,
 		workers: workerpool.NewPool(context.Background(), workerpool.Option{
@@ -38,12 +38,20 @@ func (c *httpClient) Close() error {
 	return nil
 }
 
-func (c *httpClient) get(base *url.URL, path string, params url.Values) (body []byte, statusCode int, err error) {
+func (c *httpClient) get(base *url.URL, path string, params url.Values, header map[string]string) (body []byte, statusCode int, err error) {
 	params = normalize(params)
 
-	r, err := c.client.Get(encodeURI(*base, path, params))
+	req, err := http.NewRequest(http.MethodGet, encodeURI(*base, path, params), nil)
 	if err == nil {
-		body, statusCode, err = readAll(r)
+		for k, v := range header {
+			req.Header.Set(k, v)
+		}
+
+		var resp *http.Response
+		resp, err = c.client.Do(req)
+		if err == nil {
+			body, statusCode, err = readAll(resp)
+		}
 	}
 
 	return
@@ -85,7 +93,7 @@ func (c *httpClient) delete(url string, recursive bool) (statusCode int, err err
 			}
 		}
 
-		err = fmt.Errorf("Delete %s. Got response but can not parse.", url)
+		err = fmt.Errorf("Delete %s. Got response but can not parse. Body:%s", url, string(body))
 	}
 
 	return

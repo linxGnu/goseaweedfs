@@ -106,7 +106,7 @@ func NewSeaweed(masterURL string, filers []string, chunkSize int64, client *http
 
 	res = &Seaweed{
 		master:    u,
-		client:    newHttpClient(client),
+		client:    newHTTPClient(client),
 		cache:     cache.New(cacheDuration, cacheDuration*2),
 		chunkSize: chunkSize,
 	}
@@ -151,7 +151,7 @@ func (c *Seaweed) Grow(count int, collection, replication, dataCenter string) er
 
 // GrowArgs pre-Allocate volumes with args.
 func (c *Seaweed) GrowArgs(args url.Values) (err error) {
-	_, _, err = c.client.get(c.master, "/vol/grow", args)
+	_, _, err = c.client.get(c.master, "/vol/grow", args, nil)
 	return
 }
 
@@ -190,7 +190,7 @@ func (c *Seaweed) doLookup(volID string, args url.Values) (result *LookupResult,
 	}
 	args.Set(ParamLookupVolumeID, volID)
 
-	jsonBlob, _, err := c.client.get(c.master, "/dir/lookup", args)
+	jsonBlob, _, err := c.client.get(c.master, "/dir/lookup", args, nil)
 	if err == nil {
 		result = &LookupResult{}
 		if err = json.Unmarshal(jsonBlob, result); err == nil {
@@ -251,13 +251,13 @@ func (c *Seaweed) GC(threshold float64) (err error) {
 	args := url.Values{
 		"garbageThreshold": []string{strconv.FormatFloat(threshold, 'f', -1, 64)},
 	}
-	_, _, err = c.client.get(c.master, "/vol/vacuum", args)
+	_, _, err = c.client.get(c.master, "/vol/vacuum", args, nil)
 	return
 }
 
 // Status check System Status.
 func (c *Seaweed) Status() (result *SystemStatus, err error) {
-	data, _, err := c.client.get(c.master, "/dir/status", nil)
+	data, _, err := c.client.get(c.master, "/dir/status", nil, nil)
 	if err == nil {
 		result = &SystemStatus{}
 		err = json.Unmarshal(data, result)
@@ -267,7 +267,7 @@ func (c *Seaweed) Status() (result *SystemStatus, err error) {
 
 // ClusterStatus get cluster status.
 func (c *Seaweed) ClusterStatus() (result *ClusterStatus, err error) {
-	data, _, err := c.client.get(c.master, "/cluster/status", nil)
+	data, _, err := c.client.get(c.master, "/cluster/status", nil, nil)
 	if err == nil {
 		result = &ClusterStatus{}
 		err = json.Unmarshal(data, result)
@@ -277,7 +277,7 @@ func (c *Seaweed) ClusterStatus() (result *ClusterStatus, err error) {
 
 // Assign do assign api.
 func (c *Seaweed) Assign() (result *AssignResult, err error) {
-	jsonBlob, _, err := c.client.get(c.master, "/dir/assign", nil)
+	jsonBlob, _, err := c.client.get(c.master, "/dir/assign", nil, nil)
 	if err == nil {
 		result = &AssignResult{}
 		if err = json.Unmarshal(jsonBlob, result); err != nil {
@@ -552,11 +552,10 @@ func (c *Seaweed) DeleteChunks(cm *ChunkManifest, args url.Values) (err error) {
 	}
 
 	if !isOk {
-		err = errors.New("Not all chunks deleted.")
-		return
+		err = fmt.Errorf("Not all chunks deleted")
 	}
 
-	return nil
+	return
 }
 
 // DeleteFile by id.
