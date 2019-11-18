@@ -11,7 +11,6 @@ import (
 	"net/http"
 	"net/url"
 	"path"
-	"runtime"
 	"strconv"
 	"strings"
 	"sync"
@@ -103,10 +102,7 @@ func NewSeaweed(masterURL string, filers []string, chunkSize int64, client *http
 		return
 	}
 
-	workers := workerpool.NewPool(context.Background(), workerpool.Option{
-		NumberWorker:    runtime.NumCPU(),
-		ExpandableLimit: int32(runtime.NumCPU()),
-	})
+	workers := createWorkerPool()
 
 	res = &Seaweed{
 		master:    u,
@@ -128,7 +124,7 @@ func NewSeaweed(masterURL string, filers []string, chunkSize int64, client *http
 	}
 
 	// start underlying workers
-	workers.Start()
+	res.workers.Start()
 
 	return
 }
@@ -403,7 +399,7 @@ func (c *Seaweed) BatchUploadFileParts(files []*FilePart, collection string, ttl
 		}
 	}
 
-	ret, err := c.Assign()
+	assigned, err := c.Assign()
 	if err != nil {
 		for index := range files {
 			results[index].Error = err.Error()
@@ -413,31 +409,30 @@ func (c *Seaweed) BatchUploadFileParts(files []*FilePart, collection string, ttl
 
 	var wg sync.WaitGroup
 	for index, file := range files {
+		file.FileID = assigned.FileID
+		if index > 0 {
+			file.FileID = file.FileID + "_" + strconv.Itoa(index)
+		}
+		file.Server = assigned.URL
+		file.Collection = collection
+
 		wg.Add(1)
-		c.workers.Do(c.uploadTask(&wg, file, ret, index, collection, results))
+		task := c.uploadTask(&wg, file, assigned, results[index])
+		c.workers.Do(task)
 	}
 	wg.Wait()
 
 	return results, nil
 }
 
-func (c *Seaweed) uploadTask(wg *sync.WaitGroup, file *FilePart, ret *AssignResult, index int, collection string, results []*SubmitResult) *workerpool.Task {
+func (c *Seaweed) uploadTask(wg *sync.WaitGroup, file *FilePart, assigned *AssignResult, result *SubmitResult) *workerpool.Task {
 	return workerpool.NewTask(context.Background(), func(ctx context.Context) (interface{}, error) {
-		file.FileID = ret.FileID
-		if index > 0 {
-			file.FileID = file.FileID + "_" + strconv.Itoa(index)
-		}
-		file.Server = ret.URL
-		file.Collection = collection
-
+		result.Size = file.FileSize
+		result.FileID = file.FileID
+		result.FileURL = assigned.PublicURL + "/" + file.FileID
 		if _, _, err := c.UploadFilePart(file); err != nil {
-			results[index].Error = err.Error()
+			result.Error = err.Error()
 		}
-
-		results[index].Size = file.FileSize
-		results[index].FileID = file.FileID
-		results[index].FileURL = ret.PublicURL + "/" + file.FileID
-
 		wg.Done()
 		return nil, nil
 	})

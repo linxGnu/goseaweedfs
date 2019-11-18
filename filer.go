@@ -1,12 +1,10 @@
 package goseaweedfs
 
 import (
-	"context"
 	"encoding/json"
 	"io"
 	"net/http"
 	"net/url"
-	"runtime"
 
 	workerpool "github.com/linxGnu/gumble/worker-pool"
 )
@@ -34,10 +32,7 @@ func NewFiler(u string, client *http.Client) (f *Filer, err error) {
 		return
 	}
 
-	workers := workerpool.NewPool(context.Background(), workerpool.Option{
-		NumberWorker:    runtime.NumCPU(),
-		ExpandableLimit: int32(runtime.NumCPU()),
-	})
+	workers := createWorkerPool()
 
 	f = &Filer{
 		base:    base,
@@ -46,7 +41,7 @@ func NewFiler(u string, client *http.Client) (f *Filer, err error) {
 	}
 
 	// start underlying workers
-	workers.Start()
+	f.workers.Start()
 
 	return
 }
