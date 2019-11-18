@@ -120,11 +120,6 @@ func TestGrowAndGC(t *testing.T) {
 	require.Nil(t, err)
 }
 
-func TestLookupVolumeIDs(t *testing.T) {
-	_, err := sw.LookupVolumeIDs([]string{"50", "51", "1"})
-	require.Nil(t, err)
-}
-
 func TestStatus(t *testing.T) {
 	_, err := sw.Status()
 	require.Nil(t, err)

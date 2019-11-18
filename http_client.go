@@ -40,22 +40,9 @@ func (c *httpClient) Close() error {
 	return nil
 }
 
-func (c *httpClient) postForm(_url string, values url.Values) (body []byte, statusCode int, err error) {
-	req, _ := http.NewRequest(http.MethodPost, _url, strings.NewReader(values.Encode()))
-	if err = req.ParseForm(); err == nil {
-		var r *http.Response
-		r, err = c.client.Do(req)
-		if err == nil {
-			body, statusCode, err = readAll(r)
-		}
-	}
-
-	return
-}
-
-func (c *httpClient) get(scheme, host, path string, values url.Values) (body []byte, statusCode int, err error) {
-	values = normalize(values)
-	return c.getWithURL(makeURL(scheme, host, path, values))
+func (c *httpClient) get(scheme, host, path string, params url.Values) (body []byte, statusCode int, err error) {
+	params = normalize(params)
+	return c.getWithURL(makeURL(scheme, host, path, params))
 }
 
 func (c *httpClient) getWithHeaders(fullURL string, headers map[string]string) (body []byte, statusCode int, err error) {

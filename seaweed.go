@@ -176,7 +176,7 @@ func (c *Seaweed) doLookup(volID string, args url.Values) (result *LookupResult,
 	}
 	args.Set(ParamLookupVolumeID, volID)
 
-	jsonBlob, _, err := c.client.postForm(makeURL(c.Scheme, c.Master, "/dir/lookup", nil), args)
+	jsonBlob, _, err := c.client.getWithURL(makeURL(c.Scheme, c.Master, "/dir/lookup", args))
 	if err == nil {
 		result = &LookupResult{}
 		if err = json.Unmarshal(jsonBlob, result); err == nil {
@@ -226,53 +226,6 @@ func (c *Seaweed) LookupFileID(fileID string, args url.Values, readonly bool) (f
 	if err == nil {
 		fullURL = makeURL(c.Scheme, u, fileID, nil)
 	}
-	return
-}
-
-// LookupVolumeIDs find volume locations by cache and actual lookup
-func (c *Seaweed) LookupVolumeIDs(volIDs []string) (result map[string]*LookupResult, err error) {
-	result = make(map[string]*LookupResult)
-
-	//
-	unknownVolIDs := make([]string, len(volIDs))
-	n := 0
-
-	// check vid cache first
-	for _, vid := range volIDs {
-		if item, exist := c.cache.Get(vid); exist && item != nil {
-			result[vid] = item.(*LookupResult)
-		} else {
-			unknownVolIDs[n] = vid
-			n++
-		}
-	}
-
-	if n == 0 {
-		return
-	}
-
-	//only query unknown_vids
-	args := make(url.Values)
-	for i := 0; i < n; i++ {
-		args.Add("volumeId", unknownVolIDs[i])
-	}
-
-	jsonBlob, _, err := c.client.postForm(makeURL(c.Scheme, c.Master, "/vol/lookup", nil), args)
-	if err != nil {
-		return
-	}
-
-	ret := make(map[string]*LookupResult)
-	if err = json.Unmarshal(jsonBlob, &ret); err != nil {
-		return
-	}
-
-	for k, v := range ret {
-		result[k] = v
-		c.cache.Set(k, v, cacheDuration)
-	}
-
-	err = nil
 	return
 }
 
