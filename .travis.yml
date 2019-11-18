@@ -25,7 +25,7 @@ before_script:
   - sleep 5
   - ./weed filer -ip='localhost' -port=7788 -master='localhost:8888' &
   - sleep 5
-  - /weed mount -filer=localhost:7788 -dir=/tmp/sw/filer &
+  - ./weed mount -filer=localhost:7788 -dir=/tmp/sw/filer &
   - sleep 5
   - cd $HOME/gopath/src/github.com/linxGnu/goseaweedfs
 
