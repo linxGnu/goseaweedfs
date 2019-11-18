@@ -120,10 +120,10 @@ func (c *httpClient) Download(fileURL string, callback func(io.Reader) error) (f
 }
 
 func (c *httpClient) upload(uploadURL string, filename string, fileReader io.Reader, mtype string) (respBody []byte, statusCode int, err error) {
-	pipeReader, pipeWriter := io.Pipe()
+	r, w := io.Pipe()
 
 	// create multipart writer
-	mw := multipart.NewWriter(pipeWriter)
+	mw := multipart.NewWriter(w)
 
 	task := workerpool.NewTask(context.Background(), func(ctx context.Context) (interface{}, error) {
 		h := make(textproto.MIMEHeader)
@@ -141,9 +141,14 @@ func (c *httpClient) upload(uploadURL string, filename string, fileReader io.Rea
 		}
 
 		if err == nil {
-			err = mw.Close()
+			if err = mw.Close(); err == nil {
+				err = w.Close()
+			} else {
+				_ = w.Close()
+			}
 		} else {
 			_ = mw.Close()
+			_ = w.Close()
 		}
 
 		return nil, err
@@ -151,7 +156,7 @@ func (c *httpClient) upload(uploadURL string, filename string, fileReader io.Rea
 	c.workers.Do(task)
 
 	var resp *http.Response
-	if resp, err = c.client.Post(uploadURL, mw.FormDataContentType(), pipeReader); err == nil {
+	if resp, err = c.client.Post(uploadURL, mw.FormDataContentType(), r); err == nil {
 		if respBody, statusCode, err = readAll(resp); err == nil {
 			result := <-task.Result()
 			err = result.Err
