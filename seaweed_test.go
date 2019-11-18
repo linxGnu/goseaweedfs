@@ -13,8 +13,10 @@ import (
 	"encoding/json"
 	"fmt"
 	"io"
+	"io/ioutil"
 	"net/http"
 	"os"
+	"sort"
 	"testing"
 	"time"
 
@@ -213,7 +215,7 @@ func TestUnzipAndLoading(t *testing.T) {
 	writer.Close()
 
 	// try to load chunk manifest
-	cm2, err := LoadChunkManifest(b.Bytes(), true)
+	cm2, err := loadChunkManifest(b.Bytes(), true)
 	require.Nil(t, err)
 
 	require.Equal(t, cm1.Mime, cm2.Mime)
@@ -224,4 +226,32 @@ func TestUnzipAndLoading(t *testing.T) {
 	require.Equal(t, cm1.Chunks[0].Fid, cm2.Chunks[0].Fid)
 	require.Equal(t, cm1.Chunks[0].Offset, cm2.Chunks[0].Offset)
 	require.Equal(t, cm1.Chunks[0].Size, cm2.Chunks[0].Size)
+}
+
+func unzipData(input []byte) ([]byte, error) {
+	buf := bytes.NewBuffer(input)
+	r, _ := gzip.NewReader(buf)
+	defer r.Close()
+	output, err := ioutil.ReadAll(r)
+	return output, err
+}
+
+func loadChunkManifest(buffer []byte, isGzipped bool) (*ChunkManifest, error) {
+	if isGzipped {
+		var err error
+		if buffer, err = unzipData(buffer); err != nil {
+			return nil, err
+		}
+	}
+
+	cm := ChunkManifest{}
+	if e := json.Unmarshal(buffer, &cm); e != nil {
+		return nil, e
+	}
+
+	sort.Slice(cm.Chunks, func(i, j int) bool {
+		return cm.Chunks[i].Offset < cm.Chunks[j].Offset
+	})
+
+	return &cm, nil
 }

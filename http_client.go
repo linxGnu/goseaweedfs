@@ -93,7 +93,7 @@ func (c *httpClient) delete(url string, recursive bool) (statusCode int, err err
 			}
 		}
 
-		err = fmt.Errorf("Delete %s. Got response but can not parse. Body:%s", url, string(body))
+		err = fmt.Errorf("Delete %s. Got response but can not parse. Body:%s Code:%d", url, string(body), r.StatusCode)
 	}
 
 	return

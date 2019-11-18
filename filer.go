@@ -56,13 +56,10 @@ var dirHeader = map[string]string{
 // Dir list in directory.
 func (f *Filer) Dir(path string, args url.Values) (result *Dir, err error) {
 	data, _, err := f.client.get(f.base, path, args, dirHeader)
-	if err != nil {
-		return nil, err
+	if err == nil {
+		result = &Dir{}
+		err = json.Unmarshal(data, result)
 	}
-
-	result = &Dir{}
-	err = json.Unmarshal(data, result)
-
 	return
 }
 
