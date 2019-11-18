@@ -49,19 +49,6 @@ func NewFiler(u string, client *http.Client) (f *Filer, err error) {
 	return
 }
 
-// Dir list in directory.
-func (f *Filer) Dir(path string) (result *Dir, err error) {
-	data, _, err := f.client.get(f.base, path, nil)
-	if err != nil {
-		return nil, err
-	}
-
-	result = &Dir{}
-	err = json.Unmarshal(data, result)
-
-	return
-}
-
 // Upload a file.
 func (f *Filer) Upload(localFilePath, newPath, collection, ttl string) (result *FilerUploadResult, err error) {
 	fp, err := NewFilePart(localFilePath)

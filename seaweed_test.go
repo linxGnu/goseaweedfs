@@ -151,48 +151,26 @@ func TestDeleteChunks(t *testing.T) {
 }
 
 func TestFiler(t *testing.T) {
-	// test with prefix /
+	// test with prefix
 	filer := sw.filers[0]
 
-	_, err := filer.Upload(SmallFile, "js/test.txt", "", "")
+	_, err := filer.Upload(SmallFile, "/js/test.txt", "", "")
 	require.Nil(t, err)
 
-	dir, err := filer.Dir("js")
+	// try to download
+	err = filer.Download("/js/test.txt", func(r io.Reader) error {
+		return nil
+	})
 	require.Nil(t, err)
-	require.NotZero(t, len(dir.Files))
-
-	// check directory
-	contain := false
-	for _, v := range dir.Files {
-		if v.Name == "test.txt" {
-			contain = true
-			break
-		}
-	}
-	require.True(t, contain)
 
 	// try to delete this file
-	err = filer.Delete("js/test.txt", false)
+	err = filer.Delete("/js/test.txt", false)
 	require.Nil(t, err)
 
-	// test with non prefix /
+	// test with non prefix
 	filer = sw.filers[0]
 	_, err = filer.Upload(SmallFile, "jsx/test1.jsx", "", "")
 	require.Nil(t, err)
-
-	dir, err = filer.Dir("jsx")
-	require.Nil(t, err)
-	require.NotZero(t, len(dir.Files))
-
-	// check directory
-	contain = false
-	for _, v := range dir.Files {
-		if v.Name == "test1.jsx" {
-			contain = true
-			break
-		}
-	}
-	require.True(t, contain)
 
 	// try to download
 	err = filer.Download("jsx/test1.jsx", func(r io.Reader) error {
