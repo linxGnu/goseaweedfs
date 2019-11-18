@@ -260,8 +260,8 @@ func (c *Seaweed) ClusterStatus() (result *ClusterStatus, err error) {
 }
 
 // Assign do assign api.
-func (c *Seaweed) Assign() (result *AssignResult, err error) {
-	jsonBlob, _, err := c.client.get(encodeURI(*c.master, "/dir/assign", nil), nil)
+func (c *Seaweed) Assign(args url.Values) (result *AssignResult, err error) {
+	jsonBlob, _, err := c.client.get(encodeURI(*c.master, "/dir/assign", args), nil)
 	if err == nil {
 		result = &AssignResult{}
 		if err = json.Unmarshal(jsonBlob, result); err != nil {
@@ -316,7 +316,7 @@ func (c *Seaweed) UploadFile(filePath string, collection, ttl string) (cm *Chunk
 // UploadFilePart uploads a file part.
 func (c *Seaweed) UploadFilePart(f *FilePart) (cm *ChunkManifest, fileID string, err error) {
 	if f.FileID == "" {
-		res, err := c.Assign()
+		res, err := c.Assign(normalize(nil, f.Collection, f.TTL))
 		if err != nil {
 			return nil, "", err
 		}
@@ -324,15 +324,12 @@ func (c *Seaweed) UploadFilePart(f *FilePart) (cm *ChunkManifest, fileID string,
 	}
 
 	if f.Server == "" {
-		if f.Server, err = c.LookupServerByFileID(f.FileID, normalize(nil, f.Collection, f.TTL), false); err != nil {
+		if f.Server, err = c.LookupServerByFileID(f.FileID, normalize(nil, f.Collection, ""), false); err != nil {
 			return
 		}
 	}
 
 	baseName := path.Base(f.FileName)
-
-	args := normalize(nil, f.Collection, f.TTL)
-	args.Set("Content-Type", "multipart/form-data")
 
 	if c.chunkSize > 0 && f.FileSize > c.chunkSize {
 		chunks := f.FileSize/c.chunkSize + 1
@@ -347,7 +344,7 @@ func (c *Seaweed) UploadFilePart(f *FilePart) (cm *ChunkManifest, fileID string,
 		for i := int64(0); i < chunks; i++ {
 			_, id, count, e := c.uploadChunk(f, baseName+"_"+strconv.FormatInt(i+1, 10))
 			if e != nil { // delete all uploaded chunks
-				_ = c.DeleteChunks(cm, args)
+				_ = c.DeleteChunks(cm, normalize(nil, f.Collection, ""))
 				return nil, "", e
 			}
 
@@ -359,9 +356,11 @@ func (c *Seaweed) UploadFilePart(f *FilePart) (cm *ChunkManifest, fileID string,
 		}
 
 		if err = c.uploadManifest(f, cm); err != nil { // delete all uploaded chunks
-			_ = c.DeleteChunks(cm, args)
+			_ = c.DeleteChunks(cm, normalize(nil, f.Collection, ""))
 		}
 	} else {
+		args := normalize(nil, f.Collection, f.TTL)
+		args.Set("Content-Type", "multipart/form-data")
 		if f.ModTime != 0 {
 			args.Set("ts", strconv.FormatInt(f.ModTime, 10))
 		}
@@ -395,7 +394,7 @@ func (c *Seaweed) BatchUploadFileParts(files []*FilePart, collection string, ttl
 		}
 	}
 
-	assigned, err := c.Assign()
+	assigned, err := c.Assign(normalize(nil, collection, ttl))
 	if err != nil {
 		for i := range files {
 			results[i].Error = err.Error()
@@ -472,8 +471,7 @@ func (c *Seaweed) ReplaceFilePart(f *FilePart, deleteFirst bool) (fileID string,
 
 func (c *Seaweed) uploadChunk(f *FilePart, filename string) (assignResult *AssignResult, fileID string, size int64, err error) {
 	// Assign first to get file id and url for uploading
-	assignResult, err = c.Assign()
-
+	assignResult, err = c.Assign(normalize(nil, f.Collection, f.TTL))
 	if err == nil {
 		fileID = assignResult.FileID
 
