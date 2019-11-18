@@ -590,7 +590,7 @@ func (c *Seaweed) DeleteChunks(cm *ChunkManifest, args url.Values) (err error) {
 func (c *Seaweed) DeleteFile(fileID string, args url.Values) (err error) {
 	fileURL, err := c.LookupFileID(fileID, args, false)
 	if err == nil {
-		_, err = c.client.delete(fileURL)
+		_, err = c.client.delete(fileURL, false)
 	}
 	return
 }

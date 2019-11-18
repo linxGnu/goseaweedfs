@@ -83,7 +83,7 @@ func (f *Filer) UploadFile(filePath, newFilerPath, collection, ttl string) (resu
 }
 
 // Delete a file/dir
-func (f *Filer) Delete(pathname string) (err error) {
+func (f *Filer) Delete(pathname string, recursive bool) (err error) {
 	_, err = f.httpClient.delete(filepath.Join(f.URL, pathname))
 	return
 }

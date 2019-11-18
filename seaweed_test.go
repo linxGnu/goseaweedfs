@@ -183,7 +183,7 @@ func TestFiler(t *testing.T) {
 	require.True(t, contain)
 
 	// try to delete this file
-	err = filer.Delete("/js/test.txt")
+	err = filer.Delete("/js/test.txt", false)
 	require.Nil(t, err)
 
 	// test with non prefix /
@@ -206,7 +206,7 @@ func TestFiler(t *testing.T) {
 	require.True(t, contain)
 
 	// try to delete this file
-	err = filer.Delete("jsx/test1.jsx")
+	err = filer.Delete("jsx/test1.jsx", true)
 	require.Nil(t, err)
 }
 

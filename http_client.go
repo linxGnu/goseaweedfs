@@ -85,10 +85,19 @@ func (c *httpClient) getWithURL(fullURL string) (body []byte, statusCode int, er
 	return
 }
 
-func (c *httpClient) delete(url string) (statusCode int, err error) {
+func (c *httpClient) delete(url string, recursive bool) (statusCode int, err error) {
 	req, err := http.NewRequest(http.MethodDelete, url, nil)
 	if err != nil {
 		return
+	}
+
+	if recursive {
+		query := req.URL.Query()
+		query.Set("recursive", "true")
+		req.URL.RawQuery = query.Encode()
+
+		// trigger to use req.URL
+		req.Host = ""
 	}
 
 	r, err := c.client.Do(req)
