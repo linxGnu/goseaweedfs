@@ -345,7 +345,7 @@ func (c *Seaweed) UploadFilePart(f *FilePart) (cm *ChunkManifest, fileID string,
 		}
 
 		for i := int64(0); i < chunks; i++ {
-			_, id, count, e := c.uploadChunk(f, baseName+"_"+strconv.FormatInt(i+1, 10), args)
+			_, id, count, e := c.uploadChunk(f, baseName+"_"+strconv.FormatInt(i+1, 10))
 			if e != nil { // delete all uploaded chunks
 				_ = c.DeleteChunks(cm, args)
 				return nil, "", e
@@ -470,7 +470,7 @@ func (c *Seaweed) ReplaceFilePart(f *FilePart, deleteFirst bool) (fileID string,
 	return
 }
 
-func (c *Seaweed) uploadChunk(f *FilePart, filename string, args url.Values) (assignResult *AssignResult, fileID string, size int64, err error) {
+func (c *Seaweed) uploadChunk(f *FilePart, filename string) (assignResult *AssignResult, fileID string, size int64, err error) {
 	// Assign first to get file id and url for uploading
 	assignResult, err = c.Assign()
 
@@ -483,7 +483,7 @@ func (c *Seaweed) uploadChunk(f *FilePart, filename string, args url.Values) (as
 		// do upload
 		var v []byte
 		v, _, err = c.client.upload(
-			encodeURI(base, assignResult.FileID, args),
+			encodeURI(base, assignResult.FileID, nil),
 			filename, io.LimitReader(f.Reader, c.chunkSize),
 			"application/octet-stream")
 		if err == nil {
