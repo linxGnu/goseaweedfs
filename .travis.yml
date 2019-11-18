@@ -25,6 +25,8 @@ before_script:
   - sleep 5
   - ./weed filer -ip='localhost' -port=7788 -master='localhost:8888' &
   - sleep 5
+  - /weed mount -filer=localhost:7788 -dir=/tmp/sw/filer &
+  - sleep 5
   - cd $HOME/gopath/src/github.com/linxGnu/goseaweedfs
 
 script: GO111MODULE=on go test -v && $HOME/gopath/bin/goveralls -service=travis-ci
