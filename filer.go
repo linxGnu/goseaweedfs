@@ -5,6 +5,7 @@ import (
 	"io"
 	"net/http"
 	"net/url"
+	"strings"
 )
 
 // File structure according to filer API at https://github.com/chrislusf/seaweedfs/wiki/Filer-Server-API.
@@ -51,6 +52,10 @@ func NewFiler(u string, client *http.Client) (f *Filer, err error) {
 
 // Dir list in directory.
 func (f *Filer) Dir(path string) (result *Dir, err error) {
+	if !strings.HasSuffix(path, "/") {
+		path += "/"
+	}
+
 	data, _, err := f.client.get(f.base, path, nil)
 	if err != nil {
 		return nil, err
@@ -72,7 +77,7 @@ func (f *Filer) Upload(localFilePath, newPath, collection, ttl string) (result *
 		fp.TTL = ttl
 
 		var data []byte
-		data, _, err = f.client.upload(f.fullpath(newPath), localFilePath, fp.Reader, fp.IsGzipped, fp.MimeType)
+		data, _, err = f.client.upload(f.fullpath(newPath), localFilePath, fp.Reader, fp.MimeType)
 		if err == nil {
 			result = &FilerUploadResult{}
 			err = json.Unmarshal(data, result)

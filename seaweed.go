@@ -304,7 +304,7 @@ func (c *Seaweed) Submit(filePath string, collection, ttl string) (result *Submi
 
 // SubmitFilePart directly to master.
 func (c *Seaweed) SubmitFilePart(f *FilePart, args url.Values) (result *SubmitResult, err error) {
-	data, _, err := c.client.upload(encodeURI(*c.master, "/submit", args), f.FileName, f.Reader, f.IsGzipped, f.MimeType)
+	data, _, err := c.client.upload(encodeURI(*c.master, "/submit", args), f.FileName, f.Reader, f.MimeType)
 	if err == nil {
 		result = &SubmitResult{}
 		err = json.Unmarshal(data, result)
@@ -384,7 +384,7 @@ func (c *Seaweed) UploadFilePart(f *FilePart) (cm *ChunkManifest, fileID string,
 		}
 		args.Set("Content-Type", "multipart/form-data")
 
-		_, _, err = c.client.upload(encodeURI(*c.master, f.FileID, args), baseName, f.Reader, f.IsGzipped, f.MimeType)
+		_, _, err = c.client.upload(encodeURI(*c.master, f.FileID, args), baseName, f.Reader, f.MimeType)
 	}
 
 	if err == nil {
@@ -493,8 +493,7 @@ func (c *Seaweed) uploadChunk(f *FilePart, filename string) (assignResult *Assig
 		v, _, err = c.client.upload(
 			encodeURI(base, assignResult.FileID, nil),
 			filename, io.LimitReader(f.Reader, c.chunkSize),
-			false, "application/octet-stream")
-
+			"application/octet-stream")
 		if err == nil {
 			// parsing response data
 			uploadResult := UploadResult{}
@@ -518,7 +517,7 @@ func (c *Seaweed) uploadManifest(f *FilePart, manifest *ChunkManifest) (err erro
 		}
 		args.Set("cm", "true")
 
-		_, _, err = c.client.upload(encodeURI(*c.master, f.FileID, args), manifest.Name, bufReader, false, "application/json")
+		_, _, err = c.client.upload(encodeURI(*c.master, f.FileID, args), manifest.Name, bufReader, "application/json")
 	}
 	return
 }

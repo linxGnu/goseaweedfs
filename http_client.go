@@ -1,7 +1,6 @@
 package goseaweedfs
 
 import (
-	"compress/gzip"
 	"context"
 	"encoding/json"
 	"fmt"
@@ -15,7 +14,6 @@ import (
 	"runtime"
 	"strings"
 
-	"github.com/hashicorp/go-multierror"
 	workerpool "github.com/linxGnu/gumble/worker-pool"
 )
 
@@ -121,22 +119,11 @@ func (c *httpClient) Download(fileURL string, callback func(io.Reader) error) (f
 	return
 }
 
-func (c *httpClient) upload(uploadURL string, filename string, fileReader io.Reader, isGzipped bool, mtype string) (respBody []byte, statusCode int, err error) {
-	var (
-		gzWriter *gzip.Writer
-		w        io.Writer
-	)
-
+func (c *httpClient) upload(uploadURL string, filename string, fileReader io.Reader, mtype string) (respBody []byte, statusCode int, err error) {
 	pipeReader, pipeWriter := io.Pipe()
-	if !isGzipped {
-		gzWriter = gzip.NewWriter(pipeWriter)
-		w = gzWriter
-	} else {
-		w = pipeWriter
-	}
 
 	// create multipart writer
-	mw := multipart.NewWriter(w)
+	mw := multipart.NewWriter(pipeWriter)
 
 	task := workerpool.NewTask(context.Background(), func(ctx context.Context) (interface{}, error) {
 		h := make(textproto.MIMEHeader)
@@ -147,32 +134,16 @@ func (c *httpClient) upload(uploadURL string, filename string, fileReader io.Rea
 		if mtype != "" {
 			h.Set("Content-Type", mtype)
 		}
-		if isGzipped {
-			h.Set("Content-Encoding", "gzip")
-		}
 
 		part, err := mw.CreatePart(h)
 		if err == nil {
-			if _, err = io.Copy(part, fileReader); err == io.EOF {
-				err = nil
-			}
+			_, err = io.Copy(part, fileReader)
 		}
 
 		if err == nil {
-			if isGzipped {
-				err = multierror.Append(mw.Close(), gzWriter.Close(), pipeWriter.Close()).ErrorOrNil()
-			} else {
-				err = multierror.Append(mw.Close(), pipeWriter.Close()).ErrorOrNil()
-			}
+			err = mw.Close()
 		} else {
-			if isGzipped {
-				_ = mw.Close()
-				_ = gzWriter.Close()
-				_ = pipeWriter.Close()
-			} else {
-				_ = mw.Close()
-				_ = pipeWriter.Close()
-			}
+			_ = mw.Close()
 		}
 
 		return nil, err

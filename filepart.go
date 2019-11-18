@@ -14,7 +14,6 @@ type FilePart struct {
 	Reader     io.ReadCloser
 	FileName   string
 	FileSize   int64
-	IsGzipped  bool
 	MimeType   string
 	ModTime    int64 //in seconds
 	Collection string
@@ -50,7 +49,6 @@ func NewFilePartFromReader(reader io.ReadCloser, fileName string, fileSize int64
 	if ext != "" {
 		ret.MimeType = mime.TypeByExtension(ext)
 	}
-	ret.IsGzipped = ext == ".gz"
 
 	return &ret
 }
@@ -78,7 +76,6 @@ func NewFilePart(fullPathFilename string) (*FilePart, error) {
 	if ext != "" {
 		ret.MimeType = mime.TypeByExtension(ext)
 	}
-	ret.IsGzipped = ext == ".gz"
 
 	return &ret, nil
 }
