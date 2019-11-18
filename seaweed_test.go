@@ -169,9 +169,12 @@ func TestFiler(t *testing.T) {
 	require.Nil(t, err)
 
 	// test with non prefix
-	filer = sw.filers[0]
 	_, err = filer.Upload(SmallFile, "js/test1.jsx", "", "")
 	require.Nil(t, err)
+
+	data, _, err := filer.Get("js", nil, nil)
+	require.Nil(t, err)
+	require.NotZero(t, len(data))
 
 	// try to download
 	err = filer.Download("js/test1.jsx", func(r io.Reader) error {

@@ -59,6 +59,12 @@ func (f *Filer) Upload(localFilePath, newPath, collection, ttl string) (result *
 	return
 }
 
+// Get response data from filer.
+func (f *Filer) Get(path string, args url.Values, header map[string]string) (data []byte, statusCode int, err error) {
+	data, statusCode, err = f.client.get(f.base, path, args, header)
+	return
+}
+
 // Download a file.
 func (f *Filer) Download(path string, callback func(io.Reader) error) (err error) {
 	_, err = f.client.Download(f.fullpath(path), callback)
