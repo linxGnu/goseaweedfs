@@ -24,6 +24,10 @@ type FilerUploadResult struct {
 
 // NewFiler new filer with filer server's url
 func NewFiler(u string, client *http.Client) (f *Filer, err error) {
+	return newFiler(u, newHTTPClient(client))
+}
+
+func newFiler(u string, client *httpClient) (f *Filer, err error) {
 	base, err := parseURI(u)
 	if err != nil {
 		return
@@ -31,13 +35,22 @@ func NewFiler(u string, client *http.Client) (f *Filer, err error) {
 
 	f = &Filer{
 		base:   base,
-		client: newHTTPClient(client),
+		client: client,
 	}
+
 	return
 }
 
 var dirHeader = map[string]string{
 	"Accept": "application/json",
+}
+
+// Close underlying daemons.
+func (f *Filer) Close() (err error) {
+	if f.client != nil {
+		err = f.client.Close()
+	}
+	return
 }
 
 // Upload a file.

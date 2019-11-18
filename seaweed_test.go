@@ -28,20 +28,24 @@ var sw *Seaweed
 var MediumFile, SmallFile string
 
 func init() {
-	// check master url
-	if masterURL := os.Getenv("GOSWFS_MASTER_URL"); masterURL != "" {
-		var filer []string
-		if _filer := os.Getenv("GOSWFS_FILER_URL"); _filer != "" {
-			filer = []string{_filer}
-		}
-
-		sw, _ = NewSeaweed(masterURL, filer, 2*1024*1024, &http.Client{Timeout: 5 * time.Minute})
+	masterURL := os.Getenv("GOSWFS_MASTER_URL")
+	if masterURL == "" {
+		panic("Master URL is required")
 	}
+
+	// check master url
+	var filer []string
+	if _filer := os.Getenv("GOSWFS_FILER_URL"); _filer != "" {
+		filer = []string{_filer}
+	}
+
+	sw, _ = NewSeaweed(masterURL, filer, 2*1024*1024, &http.Client{Timeout: 5 * time.Minute})
+	_ = sw.Close()
+
+	sw, _ = NewSeaweed(masterURL, filer, 2*1024*1024, &http.Client{Timeout: 5 * time.Minute})
 
 	MediumFile = os.Getenv("GOSWFS_MEDIUM_FILE")
 	SmallFile = os.Getenv("GOSWFS_SMALL_FILE")
-
-	time.Sleep(10 * time.Second)
 }
 
 func TestUploadLookupserverReplaceDeleteFile(t *testing.T) {

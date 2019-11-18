@@ -2,6 +2,7 @@ package goseaweedfs
 
 import (
 	"bytes"
+	"context"
 	"encoding/json"
 	"errors"
 	"fmt"
@@ -12,7 +13,8 @@ import (
 	"path"
 	"strconv"
 	"strings"
-	"sync"
+
+	workerpool "github.com/linxGnu/gumble/worker-pool"
 )
 
 var (
@@ -89,33 +91,50 @@ type Seaweed struct {
 	filers    []*Filer
 	chunkSize int64
 	client    *httpClient
+	workers   *workerpool.Pool
 }
 
 // NewSeaweed create new seaweed client. Master url must be a valid uri (which includes scheme).
-func NewSeaweed(masterURL string, filers []string, chunkSize int64, client *http.Client) (res *Seaweed, err error) {
+func NewSeaweed(masterURL string, filers []string, chunkSize int64, client *http.Client) (c *Seaweed, err error) {
 	u, err := parseURI(masterURL)
 	if err != nil {
 		return
 	}
 
-	res = &Seaweed{
+	c = &Seaweed{
 		master:    u,
 		client:    newHTTPClient(client),
 		chunkSize: chunkSize,
 	}
 
 	if len(filers) > 0 {
-		res.filers = make([]*Filer, 0, len(filers))
+		c.filers = make([]*Filer, 0, len(filers))
 		for i := range filers {
 			var filer *Filer
-			filer, err = NewFiler(filers[i], client)
+			filer, err = newFiler(filers[i], c.client)
 			if err != nil {
+				_ = c.Close()
 				return
 			}
-			res.filers = append(res.filers, filer)
+			c.filers = append(c.filers, filer)
 		}
 	}
 
+	// start underlying workers
+	c.workers = createWorkerPool()
+	c.workers.Start()
+
+	return
+}
+
+// Close underlying daemons.
+func (c *Seaweed) Close() (err error) {
+	if c.workers != nil {
+		c.workers.Stop()
+	}
+	if c.client != nil {
+		err = c.client.Close()
+	}
 	return
 }
 
@@ -383,39 +402,48 @@ func (c *Seaweed) BatchUploadFileParts(files []*FilePart, collection string, ttl
 		}
 	}
 
-	ret, err := c.Assign()
+	assigned, err := c.Assign()
 	if err != nil {
-		for index := range files {
-			results[index].Error = err.Error()
+		for i := range files {
+			results[i].Error = err.Error()
 		}
 		return results, err
 	}
 
-	wg := sync.WaitGroup{}
-	for index, file := range files {
-		wg.Add(1)
-		go func(wg *sync.WaitGroup, index int, file *FilePart) {
-			file.FileID = ret.FileID
-			if index > 0 {
-				file.FileID = file.FileID + "_" + strconv.Itoa(index)
-			}
-			file.Server = ret.URL
-			file.Collection = collection
+	tasks := make([]*workerpool.Task, 0, len(files))
+	for i, file := range files {
+		file.FileID = assigned.FileID
+		if i > 0 {
+			file.FileID = file.FileID + "_" + strconv.Itoa(i)
+		}
+		file.Server = assigned.URL
+		file.Collection = collection
 
-			if _, _, err := c.UploadFilePart(file); err != nil {
-				results[index].Error = err.Error()
-			}
+		results[i].Size = file.FileSize
+		results[i].FileID = file.FileID
+		results[i].FileURL = assigned.PublicURL + "/" + file.FileID
 
-			results[index].Size = file.FileSize
-			results[index].FileID = file.FileID
-			results[index].FileURL = ret.PublicURL + "/" + file.FileID
-
-			wg.Done()
-		}(&wg, index, file)
+		task := c.uploadTask(file)
+		c.workers.Do(task)
+		tasks = append(tasks, task)
 	}
-	wg.Wait()
+
+	for i := range tasks {
+		r := <-tasks[i].Result()
+		if r.Err != nil {
+			results[i].Error = r.Err.Error()
+		}
+	}
 
 	return results, nil
+}
+
+func (c *Seaweed) uploadTask(file *FilePart) *workerpool.Task {
+	return workerpool.NewTask(context.Background(), func(ctx context.Context) (res interface{}, err error) {
+		fmt.Println("Uploading", file)
+		_, _, err = c.UploadFilePart(file)
+		return
+	})
 }
 
 // Replace file content with new one.
@@ -507,25 +535,27 @@ func (c *Seaweed) DeleteChunks(cm *ChunkManifest, args url.Values) (err error) {
 		return nil
 	}
 
-	result := make(chan bool, len(cm.Chunks))
+	tasks := make([]*workerpool.Task, 0, len(cm.Chunks))
 	for _, ci := range cm.Chunks {
-		go func(fileID string) {
-			result <- c.DeleteFile(fileID, args) == nil
-		}(ci.Fid)
+		task := c.deleteFileTask(ci.Fid, args)
+		c.workers.Do(task)
+		tasks = append(tasks, task)
 	}
 
-	isOk := true
-	for i := 0; i < len(cm.Chunks); i++ {
-		if r := <-result; !r {
-			isOk = false
+	for i := range tasks {
+		if r := <-tasks[i].Result(); r.Err != nil {
+			err = r.Err
+			return
 		}
 	}
 
-	if !isOk {
-		err = fmt.Errorf("Not all chunks deleted")
-	}
-
 	return
+}
+
+func (c *Seaweed) deleteFileTask(fileID string, args url.Values) *workerpool.Task {
+	return workerpool.NewTask(context.Background(), func(ctx context.Context) (interface{}, error) {
+		return nil, c.DeleteFile(fileID, args)
+	})
 }
 
 // DeleteFile by id.
