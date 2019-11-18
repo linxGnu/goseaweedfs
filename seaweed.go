@@ -97,7 +97,7 @@ type Seaweed struct {
 	cache     *cache.Cache
 }
 
-// NewSeaweed create new seaweed with default
+// NewSeaweed create new seaweed client. Master url must be a valid uri (which includes scheme).
 func NewSeaweed(masterURL string, filers []string, chunkSize int64, client *http.Client) (res *Seaweed, err error) {
 	u, err := parseURI(masterURL)
 	if err != nil {

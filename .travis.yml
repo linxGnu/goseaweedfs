@@ -5,10 +5,10 @@ go:
 
 env:
   global:
-    - GOSWFS_MASTER_URL="localhost:8888"
+    - GOSWFS_MASTER_URL="http://localhost:8888"
     - GOSWFS_MEDIUM_FILE="/home/travis/gopath/src/github.com/linxGnu/goseaweedfs/seaweed.go"
     - GOSWFS_SMALL_FILE="/home/travis/gopath/src/github.com/linxGnu/goseaweedfs/utils.go"
-    - GOSWFS_FILER_URL="localhost:7788"
+    - GOSWFS_FILER_URL="http://localhost:7788"
 
 before_script:
   - go get -u github.com/mattn/goveralls
