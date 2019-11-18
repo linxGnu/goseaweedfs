@@ -80,7 +80,7 @@ func (c *httpClient) delete(url string, recursive bool) (statusCode int, err err
 	body, statusCode, err := readAll(r)
 	if err == nil {
 		switch r.StatusCode {
-		case http.StatusNotFound, http.StatusAccepted, http.StatusOK:
+		case http.StatusNoContent, http.StatusNotFound, http.StatusAccepted, http.StatusOK:
 			err = nil
 			return
 		}
