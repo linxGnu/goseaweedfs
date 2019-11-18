@@ -13,12 +13,13 @@ import (
 	"compress/gzip"
 	"encoding/json"
 	"fmt"
-	"math/rand"
+	"io"
+	"net/http"
 	"os"
 	"testing"
 	"time"
 
-	"github.com/linxGnu/goseaweedfs/model"
+	"github.com/stretchr/testify/require"
 )
 
 var sw *Seaweed
@@ -38,7 +39,7 @@ func init() {
 			filer = []string{_filer}
 		}
 
-		sw = NewSeaweed(scheme, masterURL, filer, 2*1024*1024, 5*time.Minute)
+		sw = NewSeaweed(scheme, masterURL, filer, 2*1024*1024, &http.Client{Timeout: 5 * time.Minute})
 	}
 
 	MediumFile = os.Getenv("GOSWFS_MEDIUM_FILE")
@@ -48,293 +49,173 @@ func init() {
 }
 
 func TestUploadLookupserverReplaceDeleteFile(t *testing.T) {
-	if sw == nil || MediumFile == "" {
-		return
-	}
-
-	for i := 1; i <= 2; i++ {
+	for i := 0; i < 2; i++ {
 		_, _, fID, err := sw.UploadFile(MediumFile, "", "")
-		if err != nil {
-			t.Fatal(err)
-		}
+		require.Nil(t, err)
+
+		_, err = sw.LookupServerByFileID(fID, nil, true)
+		require.Nil(t, err)
 
 		//
-		if _, err := sw.LookupServerByFileID(fID, nil, true); err != nil {
-			t.Fatal(err)
-		}
+		_, err = sw.LookupFileID(fID, nil, true)
+		require.Nil(t, err)
 
 		//
-		if _, err := sw.LookupFileID(fID, nil, true); err != nil {
-			t.Fatal(err)
-		}
+		err = sw.ReplaceFile(fID, SmallFile, false)
+		require.Nil(t, err)
 
 		//
-		if err := sw.ReplaceFile(fID, SmallFile, false); err != nil {
-			t.Fatal(err)
-			return
-		}
+		err = sw.ReplaceFile(fID, SmallFile, true)
+		require.Nil(t, err)
 
-		//
-		if err := sw.ReplaceFile(fID, SmallFile, true); err != nil {
-			t.Fatal(err)
-			return
-		}
-
-		if err = sw.DeleteFile(fID, nil); err != nil {
-			t.Fatal(err)
-			return
-		}
+		err = sw.DeleteFile(fID, nil)
+		require.Nil(t, err)
 
 		// test upload file
 		fh, err := os.Open(MediumFile)
-		if err != nil {
-			t.Fatal(err)
-		}
-		defer fh.Close()
-
+		require.Nil(t, err)
 		var size int64
-		if fi, fiErr := fh.Stat(); fiErr != nil {
-			t.Fatal(fiErr)
-		} else {
-			size = fi.Size()
-		}
-
-		if _, fID, err = sw.Upload(fh, "test.txt", size, "col", ""); err != nil {
-			t.Fatal(err)
-		}
+		fi, fiErr := fh.Stat()
+		require.Nil(t, fiErr)
+		size = fi.Size()
+		_, fID, err = sw.Upload(fh, "test.txt", size, "col", "")
+		require.Nil(t, err)
+		require.Nil(t, fh.Close())
 
 		// Replace with small file
 		fs, err := os.Open(SmallFile)
-		if err != nil {
-			t.Fatal(err)
-		}
-		defer fs.Close()
-		if fi, fiErr := fs.Stat(); fiErr != nil {
-			t.Fatal(fiErr)
-		} else {
-			size = fi.Size()
-		}
-
-		if err := sw.Replace(fID, fs, "ta.txt", size, "", "", false); err != nil {
-			t.Fatal(err)
-			return
-		}
-
-		// finally delete
-		if err = sw.DeleteFile(fID, nil); err != nil {
-			t.Fatal(err)
-		}
+		require.Nil(t, err)
+		fi, fiErr = fs.Stat()
+		require.Nil(t, fiErr)
+		size = fi.Size()
+		require.Nil(t, sw.Replace(fID, fs, "ta.txt", size, "", "", false))
+		require.Nil(t, sw.DeleteFile(fID, nil))
+		fs.Close()
 	}
 }
 
 func TestBatchUploadFiles(t *testing.T) {
-	if sw == nil {
-		return
-	}
-
 	if MediumFile != "" && SmallFile != "" {
 		_, err := sw.BatchUploadFiles([]string{MediumFile, SmallFile}, "", "")
-		if err != nil {
-			t.Fatal(err)
-		}
+		require.Nil(t, err)
 	} else if MediumFile != "" {
 		_, err := sw.BatchUploadFiles([]string{MediumFile, MediumFile}, "", "")
-		if err != nil {
-			t.Fatal(err)
-		}
+		require.Nil(t, err)
 	} else if SmallFile != "" {
 		_, err := sw.BatchUploadFiles([]string{SmallFile, SmallFile}, "", "")
-		if err != nil {
-			t.Fatal(err)
-		}
+		require.Nil(t, err)
 	}
 }
 
 func TestLookup(t *testing.T) {
-	if sw == nil {
-		return
-	}
-
 	_, err := sw.Lookup("1", nil)
-	if err != nil {
-		t.Fatal(err)
-	}
+	require.Nil(t, err)
 
 	_, err = sw.LookupNoCache("1", nil)
-	if err != nil {
-		t.Fatal(err)
-	}
+	require.Nil(t, err)
 }
 
 func TestGrowAndGC(t *testing.T) {
-	if sw == nil {
-		return
-	}
-
-	fmt.Println(sw.Grow(50+rand.Int()%14, "imgs", "000", "dc1"))
-
-	sw.GC(1024 * 1024)
+	err := sw.GC(1024 * 1024)
+	require.Nil(t, err)
 }
 
 func TestLookupVolumeIDs(t *testing.T) {
-	if sw == nil {
-		return
-	}
-
-	if _, err := sw.LookupVolumeIDs([]string{"50", "51", "1"}); err != nil {
-		t.Fatal(err)
-	}
+	_, err := sw.LookupVolumeIDs([]string{"50", "51", "1"})
+	require.Nil(t, err)
 }
 
 func TestStatus(t *testing.T) {
-	if sw == nil {
-		return
-	}
-
-	if _, err := sw.Status(); err != nil {
-		t.Fatal(err)
-	}
+	_, err := sw.Status()
+	require.Nil(t, err)
 }
 
 func TestClusterStatus(t *testing.T) {
-	if sw == nil {
-		return
-	}
-
 	_, err := sw.ClusterStatus()
-	if err != nil {
-		t.Fatal(err)
-		return
-	}
+	require.Nil(t, err)
 }
 
 func TestSubmit(t *testing.T) {
-	if sw == nil {
-		return
-	}
-
 	if SmallFile != "" {
-		if _, err := sw.Submit(SmallFile, "", ""); err != nil {
-			t.Fatal(err)
-			return
-		}
+		_, err := sw.Submit(SmallFile, "", "")
+		require.Nil(t, err)
 	}
 }
 
 func TestDownloadFile(t *testing.T) {
-	if sw == nil {
-		return
-	}
-
 	if SmallFile != "" {
-		fileName, fileData, err := sw.DownloadFile(SmallFile, nil)
-		if err != nil {
-			t.Fatal(err)
-		}
-		fmt.Println("Download file name is ", fileName)
-		f, err := os.Create(fileName)
-		if err != nil {
-			t.Fatal(err)
-		}
-		f.Write(fileData)
+		_, err := sw.Download(SmallFile, nil, func(r io.Reader) error {
+			return fmt.Errorf("Fake error")
+		})
+		require.NotNil(t, err)
 	}
 }
 
 func TestDeleteChunks(t *testing.T) {
-	if sw == nil {
-		return
-	}
-
 	if MediumFile != "" {
 		cm, _, _, err := sw.UploadFile(MediumFile, "", "")
-		if err != nil {
-			t.Fatal(err)
-		}
+		require.Nil(t, err)
 
-		if err = sw.DeleteChunks(cm, nil); err != nil {
-			t.Fatal(err)
-		}
+		err = sw.DeleteChunks(cm, nil)
+		require.Nil(t, err)
 	}
 }
 
 func TestFiler(t *testing.T) {
-	if sw == nil || sw.Filers == nil || len(sw.Filers) == 0 {
-		return
-	}
-
 	// test with prefix /
 	filer := sw.Filers[0]
-	if uploadResult, err := filer.UploadFile(SmallFile, "/js/test.txt", "", ""); err != nil {
-		t.Fatal(err)
-	} else {
-		fmt.Println(uploadResult)
-	}
 
-	if dir, err := filer.Dir("/js/"); err != nil {
-		t.Fatal(err)
-	} else {
-		if dir.Files == nil || len(dir.Files) == 0 {
-			t.Fatal(fmt.Errorf("Directory js contains no file"))
-		}
+	_, err := filer.UploadFile(SmallFile, "/js/test.txt", "", "")
+	require.Nil(t, err)
 
-		// check directory
-		contain := false
-		for _, v := range dir.Files {
-			if v.Name == "test.txt" {
-				contain = true
-				break
-			}
-		}
-		if !contain {
-			t.Fatal(fmt.Errorf("Directory js does not contain test.txt"))
-		}
+	dir, err := filer.Dir("/js/")
+	require.Nil(t, err)
+	require.NotZero(t, len(dir.Files))
 
-		// try to delete this file
-		if err := filer.Delete("/js/test.txt"); err != nil {
-			t.Fatal(err)
+	// check directory
+	contain := false
+	for _, v := range dir.Files {
+		if v.Name == "test.txt" {
+			contain = true
+			break
 		}
 	}
+	require.True(t, contain)
+
+	// try to delete this file
+	err = filer.Delete("/js/test.txt")
+	require.Nil(t, err)
 
 	// test with non prefix /
 	filer = sw.Filers[0]
-	if uploadResult, err := filer.UploadFile(SmallFile, "jsx/test1.jsx", "", ""); err != nil {
-		t.Fatal(err)
-	} else {
-		fmt.Println(uploadResult)
-	}
+	_, err = filer.UploadFile(SmallFile, "jsx/test1.jsx", "", "")
+	require.Nil(t, err)
 
-	if dir, err := filer.Dir("jsx"); err != nil {
-		t.Fatal(err)
-	} else {
-		if dir.Files == nil || len(dir.Files) == 0 {
-			t.Fatal(fmt.Errorf("Directory js contains no file"))
-		}
+	dir, err = filer.Dir("jsx")
+	require.Nil(t, err)
+	require.NotZero(t, len(dir.Files))
 
-		// check directory
-		contain := false
-		for _, v := range dir.Files {
-			if v.Name == "test1.jsx" {
-				contain = true
-				break
-			}
-		}
-		if !contain {
-			t.Fatal(fmt.Errorf("Directory jsx does not contain test1.jsx"))
-		}
-
-		// try to delete this file
-		if err := filer.Delete("jsx/test1.jsx"); err != nil {
-			t.Fatal(err)
+	// check directory
+	contain = false
+	for _, v := range dir.Files {
+		if v.Name == "test1.jsx" {
+			contain = true
+			break
 		}
 	}
+	require.True(t, contain)
+
+	// try to delete this file
+	err = filer.Delete("jsx/test1.jsx")
+	require.Nil(t, err)
 }
 
 func TestUnzipAndLoading(t *testing.T) {
-	cm1 := &model.ChunkManifest{
+	cm1 := &ChunkManifest{
 		Mime: "images_test",
 		Name: "test.txt",
 		Size: 12345,
-		Chunks: []*model.ChunkInfo{
+		Chunks: []*ChunkInfo{
 			{
 				Fid:    "abc",
 				Offset: 2,
@@ -347,21 +228,19 @@ func TestUnzipAndLoading(t *testing.T) {
 	// gzip after json marshaling
 	var b bytes.Buffer
 	writer := gzip.NewWriter(&b)
-	writer.Write(mar)
+	_, _ = writer.Write(mar)
 	writer.Close()
 
 	// try to load chunk manifest
-	cm2, err := model.LoadChunkManifest(b.Bytes(), true)
-	if err != nil {
-		fmt.Println(err)
-		t.Fatal(err)
-	}
+	cm2, err := LoadChunkManifest(b.Bytes(), true)
+	require.Nil(t, err)
 
-	if cm1.Mime != cm2.Mime || cm1.Name != cm2.Name || cm1.Size != cm2.Size {
-		t.Fatal(fmt.Errorf("LoadChunkManifest and Gzip failed"))
-	}
+	require.Equal(t, cm1.Mime, cm2.Mime)
+	require.Equal(t, cm1.Name, cm2.Name)
+	require.Equal(t, cm1.Size, cm2.Size)
 
-	if len(cm2.Chunks) != 1 || cm2.Chunks[0].Fid != cm1.Chunks[0].Fid || cm2.Chunks[0].Offset != cm1.Chunks[0].Offset || cm2.Chunks[0].Size != cm1.Chunks[0].Size {
-		t.Fatal(fmt.Errorf("LoadChunkManifest and Gzip failed"))
-	}
+	require.Equal(t, 1, len(cm2.Chunks))
+	require.Equal(t, cm1.Chunks[0].Fid, cm2.Chunks[0].Fid)
+	require.Equal(t, cm1.Chunks[0].Offset, cm2.Chunks[0].Offset)
+	require.Equal(t, cm1.Chunks[0].Size, cm2.Chunks[0].Size)
 }

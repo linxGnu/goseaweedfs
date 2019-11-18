@@ -1,10 +1,9 @@
-package model
+package goseaweedfs
 
 import (
 	"encoding/json"
+	"path/filepath"
 	"strings"
-
-	"github.com/linxGnu/goseaweedfs/libs"
 )
 
 // File structure according to filer API at https://github.com/chrislusf/seaweedfs/wiki/Filer-Server-API.
@@ -23,7 +22,7 @@ type Dir struct {
 // Filer client
 type Filer struct {
 	URL        string `json:"url"`
-	HTTPClient *libs.HTTPClient
+	httpClient *httpClient
 }
 
 // FilerUploadResult upload result which responsed from filer server. According to https://github.com/chrislusf/seaweedfs/wiki/Filer-Server-API.
@@ -36,27 +35,19 @@ type FilerUploadResult struct {
 }
 
 // NewFiler new filer with filer server's url
-func NewFiler(url string, httpClient *libs.HTTPClient) *Filer {
+func NewFiler(url string, httpClient *httpClient) *Filer {
 	if !strings.HasPrefix(url, "http:") && !strings.HasPrefix(url, "https:") {
 		url = "http://" + url
 	}
-
 	return &Filer{
 		URL:        url,
-		HTTPClient: httpClient,
+		httpClient: httpClient,
 	}
 }
 
 // Dir list in directory
 func (f *Filer) Dir(pathname string) (result *Dir, err error) {
-	if !strings.HasPrefix(pathname, "/") {
-		pathname = "/" + pathname
-	}
-	if !strings.HasSuffix(pathname, "/") {
-		pathname = pathname + "/"
-	}
-
-	data, _, err := f.HTTPClient.GetWithHeaders(f.URL+pathname, map[string]string{"Accept": "application/json"})
+	data, _, err := f.httpClient.getWithHeaders(filepath.Join(f.URL, pathname), map[string]string{"Accept": "application/json"})
 	if err != nil {
 		return nil, err
 	}
@@ -78,11 +69,7 @@ func (f *Filer) UploadFile(filePath, newFilerPath, collection, ttl string) (resu
 	fp.Collection = collection
 	fp.TTL = ttl
 
-	if !strings.HasPrefix(newFilerPath, "/") {
-		newFilerPath = "/" + newFilerPath
-	}
-
-	data, _, err := f.HTTPClient.Upload(f.URL+newFilerPath, filePath, fp.Reader, fp.IsGzipped, fp.MimeType)
+	data, _, err := f.httpClient.upload(filepath.Join(f.URL, newFilerPath), filePath, fp.Reader, fp.IsGzipped, fp.MimeType)
 	if err != nil {
 		return
 	}
@@ -97,10 +84,6 @@ func (f *Filer) UploadFile(filePath, newFilerPath, collection, ttl string) (resu
 
 // Delete a file/dir
 func (f *Filer) Delete(pathname string) (err error) {
-	if !strings.HasPrefix(pathname, "/") {
-		pathname = "/" + pathname
-	}
-
-	_, err = f.HTTPClient.Delete(f.URL + pathname)
+	_, err = f.httpClient.delete(filepath.Join(f.URL, pathname))
 	return
 }

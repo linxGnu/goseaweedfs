@@ -1,4 +1,4 @@
-package model
+package goseaweedfs
 
 import (
 	"fmt"
