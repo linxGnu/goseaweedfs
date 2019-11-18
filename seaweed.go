@@ -13,14 +13,9 @@ import (
 	"strconv"
 	"strings"
 	"sync"
-	"time"
-
-	cache "github.com/patrickmn/go-cache"
 )
 
 var (
-	cacheDuration = 10 * time.Minute
-
 	// ErrFileNotFound return file not found error
 	ErrFileNotFound = fmt.Errorf("File not found")
 )
@@ -94,7 +89,6 @@ type Seaweed struct {
 	filers    []*Filer
 	chunkSize int64
 	client    *httpClient
-	cache     *cache.Cache
 }
 
 // NewSeaweed create new seaweed client. Master url must be a valid uri (which includes scheme).
@@ -107,7 +101,6 @@ func NewSeaweed(masterURL string, filers []string, chunkSize int64, client *http
 	res = &Seaweed{
 		master:    u,
 		client:    newHTTPClient(client),
-		cache:     cache.New(cacheDuration, cacheDuration*2),
 		chunkSize: chunkSize,
 	}
 
@@ -157,30 +150,7 @@ func (c *Seaweed) GrowArgs(args url.Values) (err error) {
 
 // Lookup volume ID.
 func (c *Seaweed) Lookup(volID string, args url.Values) (result *LookupResult, err error) {
-	if item, exist := c.cache.Get(volID); !exist || item == nil {
-		if result, err = c.doLookup(volID, args); err == nil {
-			c.cache.Set(volID, result, cacheDuration)
-		}
-	} else {
-		switch it := item.(type) {
-		case *LookupResult:
-			result, err = it, nil
-			return
-		}
-
-		if result, err = c.doLookup(volID, args); err == nil {
-			c.cache.Set(volID, result, cacheDuration)
-		}
-	}
-
-	return
-}
-
-// LookupNoCache lookup by volume id without get from caching first, but set cache in the end of process.
-func (c *Seaweed) LookupNoCache(volID string, args url.Values) (result *LookupResult, err error) {
-	if result, err = c.doLookup(volID, args); err == nil {
-		c.cache.Set(volID, result, cacheDuration)
-	}
+	result, err = c.doLookup(volID, args)
 	return
 }
 

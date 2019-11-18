@@ -108,9 +108,6 @@ func TestBatchUploadFiles(t *testing.T) {
 func TestLookup(t *testing.T) {
 	_, err := sw.Lookup("1", nil)
 	require.Nil(t, err)
-
-	_, err = sw.LookupNoCache("1", nil)
-	require.Nil(t, err)
 }
 
 func TestGrowAndGC(t *testing.T) {
@@ -175,14 +172,6 @@ func TestFiler(t *testing.T) {
 	filer = sw.filers[0]
 	_, err = filer.Upload(SmallFile, "js/test1.jsx", "", "")
 	require.Nil(t, err)
-
-	// check dir
-	dir, err := filer.Dir("js", nil)
-	require.Nil(t, err)
-	require.NotZero(t, len(dir.Files))
-	for _, v := range dir.Files {
-		require.Equal(t, "test1.jsx", v.Name)
-	}
 
 	// try to download
 	err = filer.Download("js/test1.jsx", func(r io.Reader) error {

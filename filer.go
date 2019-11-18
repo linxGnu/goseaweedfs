@@ -2,24 +2,10 @@ package goseaweedfs
 
 import (
 	"encoding/json"
-	"fmt"
 	"io"
 	"net/http"
 	"net/url"
 )
-
-// File structure according to filer API at https://github.com/chrislusf/seaweedfs/wiki/Filer-Server-API.
-type File struct {
-	FileID string `json:"fid"`
-	Name   string `json:"name"`
-}
-
-// Dir directory of filer. According to https://github.com/chrislusf/seaweedfs/wiki/Filer-Server-API.
-type Dir struct {
-	Directory      string  `json:"Directory"`
-	Files          []*File `json:"Files"`
-	Subdirectories []*File `json:"Subdirectories"`
-}
 
 // Filer client
 type Filer struct {
@@ -52,17 +38,6 @@ func NewFiler(u string, client *http.Client) (f *Filer, err error) {
 
 var dirHeader = map[string]string{
 	"Accept": "application/json",
-}
-
-// Dir list in directory.
-func (f *Filer) Dir(path string, args url.Values) (result *Dir, err error) {
-	data, _, err := f.client.get(f.base, path, args, dirHeader)
-	if err == nil {
-		result = &Dir{}
-		err = json.Unmarshal(data, result)
-		fmt.Println(string(data))
-	}
-	return
 }
 
 // Upload a file.
