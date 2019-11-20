@@ -163,10 +163,14 @@ func TestFiler(t *testing.T) {
 	require.Nil(t, err)
 
 	// try to download
+	var buf bytes.Buffer
 	err = filer.Download("/js/test.txt", nil, func(r io.Reader) error {
+		_, err := io.Copy(&buf, r)
+		require.Nil(t, err)
 		return nil
 	})
 	require.Nil(t, err)
+	require.NotZero(t, buf.Len())
 
 	// try to delete this file
 	err = filer.Delete("/js/test.txt", nil)
