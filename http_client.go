@@ -148,7 +148,13 @@ func (c *httpClient) upload(url string, filename string, fileReader io.Reader, m
 	c.workers.Do(task)
 
 	var resp *http.Response
-	if resp, err = c.client.Post(url, mw.FormDataContentType(), r); err == nil {
+	resp, err = c.client.Post(url, mw.FormDataContentType(), r)
+
+	// closing reader in case Posting error.
+	// This causes pipe writer fail to write and stop above task.
+	_ = r.Close()
+
+	if err == nil {
 		if respBody, statusCode, err = readAll(resp); err == nil {
 			result := <-task.Result()
 			err = result.Err
