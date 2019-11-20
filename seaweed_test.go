@@ -171,6 +171,7 @@ func TestFiler(t *testing.T) {
 	})
 	require.Nil(t, err)
 	require.NotZero(t, buf.Len())
+	t.Log(string(buf.Bytes()))
 
 	// try to delete this file
 	err = filer.Delete("/js/test.txt", nil)
