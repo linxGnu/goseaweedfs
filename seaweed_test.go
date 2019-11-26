@@ -142,6 +142,15 @@ func TestDownloadFile(t *testing.T) {
 			return fmt.Errorf("Fake error")
 		})
 		require.NotNil(t, err)
+
+		_, err = sw.Download(SmallFile, nil, func(r io.Reader) error {
+			data, err := ioutil.ReadAll(r)
+			if err == nil {
+				t.Log(string(data))
+			}
+			return err
+		})
+		require.Nil(t, err)
 	}
 }
 
