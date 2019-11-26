@@ -55,7 +55,7 @@ func TestUploadLookupserverReplaceDeleteFile(t *testing.T) {
 
 		_, err = sw.LookupServerByFileID(fID, nil, true)
 		require.Nil(t, err)
-		t.Log("Uploaded FileID is " + fID)
+		verifyDownloadFile(t, fID)
 
 		//
 		_, err = sw.LookupFileID(fID, nil, true)
@@ -134,23 +134,29 @@ func TestDownloadFile(t *testing.T) {
 	if SmallFile != "" {
 		result, err := sw.Submit(SmallFile, "", "")
 		require.Nil(t, err)
-		require.NotNil(t, err)
+		require.NotNil(t, result)
 
+		// return fake error
 		_, err = sw.Download(result.FileID, nil, func(r io.Reader) error {
 			return fmt.Errorf("Fake error")
 		})
 		require.NotNil(t, err)
 
-		var data []byte
-		_, err = sw.Download(SmallFile, nil, func(r io.Reader) (err error) {
-			if data, err = ioutil.ReadAll(r); err == nil {
-				t.Log(string(data))
-			}
-			return
-		})
-		require.Nil(t, err)
-		require.NotZero(t, len(data))
+		// verifying
+		verifyDownloadFile(t, result.FileID)
 	}
+}
+
+func verifyDownloadFile(t *testing.T, fid string) {
+	var data []byte
+	_, err := sw.Download(SmallFile, nil, func(r io.Reader) (err error) {
+		if data, err = ioutil.ReadAll(r); err == nil {
+			t.Log(string(data))
+		}
+		return
+	})
+	require.Nil(t, err)
+	require.NotZero(t, len(data))
 }
 
 func TestDeleteChunks(t *testing.T) {
@@ -179,7 +185,7 @@ func TestFiler(t *testing.T) {
 	})
 	require.Nil(t, err)
 	require.NotZero(t, buf.Len())
-	t.Log(string(buf.Bytes()))
+	t.Log(buf.String())
 
 	// try to delete this file
 	err = filer.Delete("/js/test.txt", nil)

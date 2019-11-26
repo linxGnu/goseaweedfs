@@ -19,7 +19,7 @@ before_script:
   - mkdir -p /tmp/sw/master/metadata
   - mkdir -p /tmp/sw/volume1/data
   - mkdir -p /tmp/sw/filer
-  - wget https://github.com/chrislusf/seaweedfs/releases/download/1.44/linux_amd64.tar.gz && tar xzf linux_amd64.tar.gz && rm -rf linux_amd64.tar.gz
+  - wget https://github.com/chrislusf/seaweedfs/releases/download/1.45/linux_amd64.tar.gz && tar xzf linux_amd64.tar.gz && rm -rf linux_amd64.tar.gz
   - cd $HOME
   - ./weed master -defaultReplication="000" -ip="localhost" -ip.bind="0.0.0.0" -port=8888 -mdir="/tmp/sw/master/metadata" -volumePreallocate -volumeSizeLimitMB="1024" -whiteList="localhost,127.0.0.1,::1" &
   - sleep 5
