@@ -209,7 +209,7 @@ func (c *Seaweed) LookupServerByFileID(fileID string, args url.Values, readonly 
 
 	if err == nil {
 		if readonly {
-			server = lookup.VolumeLocations.RandomPickForRead().URL
+			server = lookup.VolumeLocations.RandomPickForRead().PublicURL
 		} else {
 			server = lookup.VolumeLocations.Head().URL
 		}
@@ -295,30 +295,31 @@ func (c *Seaweed) SubmitFilePart(f *FilePart, args url.Values) (result *SubmitRe
 }
 
 // Upload file by reader.
-func (c *Seaweed) Upload(fileReader io.Reader, fileName string, size int64, collection, ttl string) (fp *FilePart, fileID string, err error) {
+func (c *Seaweed) Upload(fileReader io.Reader, fileName string, size int64, collection, ttl string) (fp *FilePart, err error) {
 	fp = NewFilePartFromReader(ioutil.NopCloser(fileReader), fileName, size)
 	fp.Collection, fp.TTL = collection, ttl
-	_, fileID, err = c.UploadFilePart(fp)
+	_, err = c.UploadFilePart(fp)
 	return
 }
 
 // UploadFile with full file dir/path.
-func (c *Seaweed) UploadFile(filePath string, collection, ttl string) (cm *ChunkManifest, fp *FilePart, fileID string, err error) {
+func (c *Seaweed) UploadFile(filePath string, collection, ttl string) (cm *ChunkManifest, fp *FilePart, err error) {
 	fp, err = NewFilePart(filePath)
 	if err == nil {
 		fp.Collection, fp.TTL = collection, ttl
-		cm, fileID, err = c.UploadFilePart(fp)
+		cm, err = c.UploadFilePart(fp)
 		_ = fp.Close()
 	}
 	return
 }
 
 // UploadFilePart uploads a file part.
-func (c *Seaweed) UploadFilePart(f *FilePart) (cm *ChunkManifest, fileID string, err error) {
+func (c *Seaweed) UploadFilePart(f *FilePart) (cm *ChunkManifest, err error) {
 	if f.FileID == "" {
-		res, err := c.Assign(normalize(nil, f.Collection, f.TTL))
+		var res *AssignResult
+		res, err = c.Assign(normalize(nil, f.Collection, f.TTL))
 		if err != nil {
-			return nil, "", err
+			return
 		}
 		f.Server, f.FileID = res.URL, res.FileID
 	}
@@ -345,7 +346,7 @@ func (c *Seaweed) UploadFilePart(f *FilePart) (cm *ChunkManifest, fileID string,
 			_, id, count, e := c.uploadChunk(f, baseName+"_"+strconv.FormatInt(i+1, 10))
 			if e != nil { // delete all uploaded chunks
 				_ = c.DeleteChunks(cm, normalize(nil, f.Collection, ""))
-				return nil, "", e
+				return nil, e
 			}
 
 			cm.Chunks[i] = &ChunkInfo{
@@ -360,16 +361,14 @@ func (c *Seaweed) UploadFilePart(f *FilePart) (cm *ChunkManifest, fileID string,
 		}
 	} else {
 		args := normalize(nil, f.Collection, f.TTL)
-		args.Set("Content-Type", "multipart/form-data")
 		if f.ModTime != 0 {
 			args.Set("ts", strconv.FormatInt(f.ModTime, 10))
 		}
 
-		_, _, err = c.client.upload(encodeURI(*c.master, f.FileID, args), baseName, f.Reader, f.MimeType)
-	}
+		base := *c.master
+		base.Host = f.Server
 
-	if err == nil {
-		fileID = f.FileID
+		_, _, err = c.client.upload(encodeURI(base, f.FileID, args), baseName, f.Reader, f.MimeType)
 	}
 
 	return
@@ -433,8 +432,7 @@ func (c *Seaweed) BatchUploadFileParts(files []*FilePart, collection string, ttl
 
 func (c *Seaweed) uploadTask(file *FilePart) *workerpool.Task {
 	return workerpool.NewTask(context.Background(), func(ctx context.Context) (res interface{}, err error) {
-		fmt.Println("Uploading", file)
-		_, _, err = c.UploadFilePart(file)
+		_, err = c.UploadFilePart(file)
 		return
 	})
 }
@@ -444,7 +442,7 @@ func (c *Seaweed) Replace(fileID string, newContent io.Reader, fileName string, 
 	fp := NewFilePartFromReader(ioutil.NopCloser(newContent), fileName, size)
 	fp.Collection, fp.TTL = collection, ttl
 	fp.FileID = fileID
-	_, err = c.ReplaceFilePart(fp, deleteFirst)
+	err = c.ReplaceFilePart(fp, deleteFirst)
 	return
 }
 
@@ -453,19 +451,19 @@ func (c *Seaweed) ReplaceFile(fileID, localFilePath string, deleteFirst bool) (e
 	fp, err := NewFilePart(localFilePath)
 	if err == nil {
 		fp.FileID = fileID
-		_, err = c.ReplaceFilePart(fp, deleteFirst)
+		err = c.ReplaceFilePart(fp, deleteFirst)
 		_ = fp.Close()
 	}
 	return
 }
 
 // ReplaceFilePart replaces file part.
-func (c *Seaweed) ReplaceFilePart(f *FilePart, deleteFirst bool) (fileID string, err error) {
+func (c *Seaweed) ReplaceFilePart(f *FilePart, deleteFirst bool) (err error) {
 	if deleteFirst && f.FileID != "" {
 		_ = c.DeleteFile(f.FileID, nil)
 	}
 
-	_, fileID, err = c.UploadFilePart(f)
+	_, err = c.UploadFilePart(f)
 	return
 }
 

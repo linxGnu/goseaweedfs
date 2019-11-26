@@ -50,29 +50,29 @@ func init() {
 
 func TestUploadLookupserverReplaceDeleteFile(t *testing.T) {
 	for i := 0; i < 2; i++ {
-		_, _, fID, err := sw.UploadFile(MediumFile, "", "")
+		_, fp, err := sw.UploadFile(MediumFile, "", "")
 		require.Nil(t, err)
 
-		_, err = sw.LookupServerByFileID(fID, nil, true)
+		_, err = sw.LookupServerByFileID(fp.FileID, nil, true)
 		require.Nil(t, err)
-		verifyDownloadFile(t, fID)
-
-		//
-		_, err = sw.LookupFileID(fID, nil, true)
-		require.Nil(t, err)
+		verifyDownloadFile(t, fp.FileID)
 
 		//
-		require.Nil(t, sw.ReplaceFile(fID, SmallFile, false))
-		_, err = sw.LookupFileID(fID, nil, true)
+		_, err = sw.LookupFileID(fp.FileID, nil, true)
 		require.Nil(t, err)
 
 		//
-		require.Nil(t, sw.ReplaceFile(fID, SmallFile, true))
-		_, err = sw.LookupFileID(fID, nil, true)
+		require.Nil(t, sw.ReplaceFile(fp.FileID, SmallFile, false))
+		_, err = sw.LookupFileID(fp.FileID, nil, true)
 		require.Nil(t, err)
 
 		//
-		require.Nil(t, sw.DeleteFile(fID, nil))
+		require.Nil(t, sw.ReplaceFile(fp.FileID, SmallFile, true))
+		_, err = sw.LookupFileID(fp.FileID, nil, true)
+		require.Nil(t, err)
+
+		//
+		require.Nil(t, sw.DeleteFile(fp.FileID, nil))
 
 		// test upload file
 		fh, err := os.Open(MediumFile)
@@ -81,7 +81,7 @@ func TestUploadLookupserverReplaceDeleteFile(t *testing.T) {
 		fi, fiErr := fh.Stat()
 		require.Nil(t, fiErr)
 		size = fi.Size()
-		_, fID, err = sw.Upload(fh, "test.txt", size, "col", "")
+		fp, err = sw.Upload(fh, "test.txt", size, "col", "")
 		require.Nil(t, err)
 		require.Nil(t, fh.Close())
 
@@ -91,8 +91,8 @@ func TestUploadLookupserverReplaceDeleteFile(t *testing.T) {
 		fi, fiErr = fs.Stat()
 		require.Nil(t, fiErr)
 		size = fi.Size()
-		require.Nil(t, sw.Replace(fID, fs, "ta.txt", size, "", "", false))
-		require.Nil(t, sw.DeleteFile(fID, nil))
+		require.Nil(t, sw.Replace(fp.FileID, fs, "ta.txt", size, "", "", false))
+		require.Nil(t, sw.DeleteFile(fp.FileID, nil))
 		fs.Close()
 	}
 }
@@ -149,7 +149,7 @@ func TestDownloadFile(t *testing.T) {
 
 func verifyDownloadFile(t *testing.T, fid string) {
 	var data []byte
-	_, err := sw.Download(SmallFile, nil, func(r io.Reader) (err error) {
+	_, err := sw.Download(fid, nil, func(r io.Reader) (err error) {
 		if data, err = ioutil.ReadAll(r); err == nil {
 			t.Log(string(data))
 		}
@@ -161,7 +161,7 @@ func verifyDownloadFile(t *testing.T, fid string) {
 
 func TestDeleteChunks(t *testing.T) {
 	if MediumFile != "" {
-		cm, _, _, err := sw.UploadFile(MediumFile, "", "")
+		cm, _, err := sw.UploadFile(MediumFile, "", "")
 		require.Nil(t, err)
 
 		err = sw.DeleteChunks(cm, nil)

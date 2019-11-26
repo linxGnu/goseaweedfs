@@ -15,7 +15,6 @@ env:
 before_script:
   - go get -u github.com/mattn/goveralls
   - cd $HOME
-  - mkdir -p $HOME/gopath/src/github.com/chrislusf/seaweedfs
   - mkdir -p /tmp/sw/master/metadata
   - mkdir -p /tmp/sw/volume1/data
   - mkdir -p /tmp/sw/filer
