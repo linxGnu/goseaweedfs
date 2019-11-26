@@ -39,10 +39,10 @@ func init() {
 		filer = []string{_filer}
 	}
 
-	sw, _ = NewSeaweed(masterURL, filer, 2*1024*1024, &http.Client{Timeout: 5 * time.Minute})
+	sw, _ = NewSeaweed(masterURL, filer, 8096, &http.Client{Timeout: 5 * time.Minute})
 	_ = sw.Close()
 
-	sw, _ = NewSeaweed(masterURL, filer, 2*1024*1024, &http.Client{Timeout: 5 * time.Minute})
+	sw, _ = NewSeaweed(masterURL, filer, 8096, &http.Client{Timeout: 5 * time.Minute})
 
 	MediumFile = os.Getenv("GOSWFS_MEDIUM_FILE")
 	SmallFile = os.Getenv("GOSWFS_SMALL_FILE")
@@ -50,63 +50,79 @@ func init() {
 
 func TestUploadLookupserverReplaceDeleteFile(t *testing.T) {
 	for i := 0; i < 2; i++ {
-		_, _, fID, err := sw.UploadFile(MediumFile, "", "")
+		_, fp, err := sw.UploadFile(MediumFile, "", "")
 		require.Nil(t, err)
 
-		_, err = sw.LookupServerByFileID(fID, nil, true)
+		_, err = sw.LookupServerByFileID(fp.FileID, nil, true)
 		require.Nil(t, err)
 
-		//
-		_, err = sw.LookupFileID(fID, nil, true)
-		require.Nil(t, err)
-
-		//
-		require.Nil(t, sw.ReplaceFile(fID, SmallFile, false))
-		_, err = sw.LookupFileID(fID, nil, true)
-		require.Nil(t, err)
-
-		//
-		require.Nil(t, sw.ReplaceFile(fID, SmallFile, true))
-		_, err = sw.LookupFileID(fID, nil, true)
-		require.Nil(t, err)
-
-		//
-		require.Nil(t, sw.DeleteFile(fID, nil))
-
-		// test upload file
+		// verify by downloading
+		downloaded := verifyDownloadFile(t, fp.FileID)
 		fh, err := os.Open(MediumFile)
+		require.Nil(t, err)
+		allContent, _ := ioutil.ReadAll(fh)
+		require.Nil(t, fh.Close())
+		require.EqualValues(t, downloaded, allContent)
+
+		// try to looking up
+		_, err = sw.LookupFileID(fp.FileID, nil, true)
+		require.Nil(t, err)
+
+		// try to replace with small file
+		require.Nil(t, sw.ReplaceFile(fp.FileID, SmallFile, false))
+		_, err = sw.LookupFileID(fp.FileID, nil, true)
+		require.Nil(t, err)
+
+		// verify by downloading
+		downloaded = verifyDownloadFile(t, fp.FileID)
+		fh, err = os.Open(SmallFile)
+		require.Nil(t, err)
+		allContent, _ = ioutil.ReadAll(fh)
+		require.Nil(t, fh.Close())
+		require.EqualValues(t, downloaded, allContent)
+
+		// replace again but delete first
+		require.Nil(t, sw.ReplaceFile(fp.FileID, SmallFile, true))
+		_, err = sw.LookupFileID(fp.FileID, nil, true)
+		require.Nil(t, err)
+
+		// verify by downloading
+		downloaded = verifyDownloadFile(t, fp.FileID)
+		fh, err = os.Open(SmallFile)
+		require.Nil(t, err)
+		allContent, _ = ioutil.ReadAll(fh)
+		require.Nil(t, fh.Close())
+		require.EqualValues(t, downloaded, allContent)
+
+		// delete file
+		require.Nil(t, sw.DeleteFile(fp.FileID, nil))
+
+		// uploading with file reader
+		fh, err = os.Open(MediumFile)
 		require.Nil(t, err)
 		var size int64
 		fi, fiErr := fh.Stat()
 		require.Nil(t, fiErr)
 		size = fi.Size()
-		_, fID, err = sw.Upload(fh, "test.txt", size, "col", "")
+		fp, err = sw.Upload(fh, "test.txt", size, "col", "")
 		require.Nil(t, err)
 		require.Nil(t, fh.Close())
 
-		// Replace with small file
+		// Replace with small file reader
 		fs, err := os.Open(SmallFile)
 		require.Nil(t, err)
 		fi, fiErr = fs.Stat()
 		require.Nil(t, fiErr)
 		size = fi.Size()
-		require.Nil(t, sw.Replace(fID, fs, "ta.txt", size, "", "", false))
-		require.Nil(t, sw.DeleteFile(fID, nil))
+		require.Nil(t, sw.Replace(fp.FileID, fs, "ta.txt", size, "", "", false))
+		require.Nil(t, sw.DeleteFile(fp.FileID, nil))
 		fs.Close()
 	}
 }
 
 func TestBatchUploadFiles(t *testing.T) {
-	if MediumFile != "" && SmallFile != "" {
-		_, err := sw.BatchUploadFiles([]string{MediumFile, SmallFile}, "", "")
-		require.Nil(t, err)
-	} else if MediumFile != "" {
-		_, err := sw.BatchUploadFiles([]string{MediumFile, MediumFile}, "", "")
-		require.Nil(t, err)
-	} else if SmallFile != "" {
-		_, err := sw.BatchUploadFiles([]string{SmallFile, SmallFile}, "", "")
-		require.Nil(t, err)
-	}
+	_, err := sw.BatchUploadFiles([]string{MediumFile, SmallFile}, "", "")
+	require.Nil(t, err)
 }
 
 func TestLookup(t *testing.T) {
@@ -129,25 +145,34 @@ func TestClusterStatus(t *testing.T) {
 	require.Nil(t, err)
 }
 
-func TestSubmit(t *testing.T) {
-	if SmallFile != "" {
-		_, err := sw.Submit(SmallFile, "", "")
-		require.Nil(t, err)
-	}
+func TestDownloadFile(t *testing.T) {
+	result, err := sw.Submit(SmallFile, "", "")
+	require.Nil(t, err)
+	require.NotNil(t, result)
+
+	// return fake error
+	_, err = sw.Download(result.FileID, nil, func(r io.Reader) error {
+		return fmt.Errorf("Fake error")
+	})
+	require.NotNil(t, err)
+
+	// verifying
+	verifyDownloadFile(t, result.FileID)
 }
 
-func TestDownloadFile(t *testing.T) {
-	if SmallFile != "" {
-		_, err := sw.Download(SmallFile, nil, func(r io.Reader) error {
-			return fmt.Errorf("Fake error")
-		})
-		require.NotNil(t, err)
-	}
+func verifyDownloadFile(t *testing.T, fid string) (data []byte) {
+	_, err := sw.Download(fid, nil, func(r io.Reader) (err error) {
+		data, err = ioutil.ReadAll(r)
+		return
+	})
+	require.Nil(t, err)
+	require.NotZero(t, len(data))
+	return
 }
 
 func TestDeleteChunks(t *testing.T) {
 	if MediumFile != "" {
-		cm, _, _, err := sw.UploadFile(MediumFile, "", "")
+		cm, _, err := sw.UploadFile(MediumFile, "", "")
 		require.Nil(t, err)
 
 		err = sw.DeleteChunks(cm, nil)
@@ -171,7 +196,6 @@ func TestFiler(t *testing.T) {
 	})
 	require.Nil(t, err)
 	require.NotZero(t, buf.Len())
-	t.Log(string(buf.Bytes()))
 
 	// try to delete this file
 	err = filer.Delete("/js/test.txt", nil)

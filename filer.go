@@ -42,10 +42,6 @@ func newFiler(u string, client *httpClient) (f *Filer, err error) {
 	return
 }
 
-var dirHeader = map[string]string{
-	"Accept": "application/json",
-}
-
 // Close underlying daemons.
 func (f *Filer) Close() (err error) {
 	if f.client != nil {
