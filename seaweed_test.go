@@ -55,6 +55,7 @@ func TestUploadLookupserverReplaceDeleteFile(t *testing.T) {
 
 		_, err = sw.LookupServerByFileID(fID, nil, true)
 		require.Nil(t, err)
+		t.Log("Uploaded FileID is " + fID)
 
 		//
 		_, err = sw.LookupFileID(fID, nil, true)
@@ -129,28 +130,26 @@ func TestClusterStatus(t *testing.T) {
 	require.Nil(t, err)
 }
 
-func TestSubmit(t *testing.T) {
-	if SmallFile != "" {
-		_, err := sw.Submit(SmallFile, "", "")
-		require.Nil(t, err)
-	}
-}
-
 func TestDownloadFile(t *testing.T) {
 	if SmallFile != "" {
-		_, err := sw.Download(SmallFile, nil, func(r io.Reader) error {
+		result, err := sw.Submit(SmallFile, "", "")
+		require.Nil(t, err)
+		require.NotNil(t, err)
+
+		_, err = sw.Download(result.FileID, nil, func(r io.Reader) error {
 			return fmt.Errorf("Fake error")
 		})
 		require.NotNil(t, err)
 
-		_, err = sw.Download(SmallFile, nil, func(r io.Reader) error {
-			data, err := ioutil.ReadAll(r)
-			if err == nil {
+		var data []byte
+		_, err = sw.Download(SmallFile, nil, func(r io.Reader) (err error) {
+			if data, err = ioutil.ReadAll(r); err == nil {
 				t.Log(string(data))
 			}
-			return err
+			return
 		})
 		require.Nil(t, err)
+		require.NotZero(t, len(data))
 	}
 }
 
