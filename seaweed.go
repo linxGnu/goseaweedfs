@@ -505,7 +505,10 @@ func (c *Seaweed) uploadManifest(f *FilePart, manifest *ChunkManifest) (err erro
 		}
 		args.Set("cm", "true")
 
-		_, _, err = c.client.upload(encodeURI(*c.master, f.FileID, args), manifest.Name, bufReader, "application/json")
+		base := *c.master
+		base.Host = f.Server
+
+		_, _, err = c.client.upload(encodeURI(base, f.FileID, args), manifest.Name, bufReader, "application/json")
 	}
 	return
 }
