@@ -50,8 +50,8 @@ func (f *Filer) Close() (err error) {
 	return
 }
 
-// Upload a file.
-func (f *Filer) Upload(localFilePath, newPath, collection, ttl string) (result *FilerUploadResult, err error) {
+// UploadFile a file.
+func (f *Filer) UploadFile(localFilePath, newPath, collection, ttl string) (result *FilerUploadResult, err error) {
 	fp, err := NewFilePart(localFilePath)
 	if err == nil {
 		var data []byte
@@ -66,8 +66,8 @@ func (f *Filer) Upload(localFilePath, newPath, collection, ttl string) (result *
 	return
 }
 
-// UploadFile content.
-func (f *Filer) UploadFile(content io.Reader, fileSize int64, newPath, collection, ttl string) (result *FilerUploadResult, err error) {
+// Upload content.
+func (f *Filer) Upload(content io.Reader, fileSize int64, newPath, collection, ttl string) (result *FilerUploadResult, err error) {
 	fp := NewFilePartFromReader(ioutil.NopCloser(content), newPath, fileSize)
 
 	var data []byte
