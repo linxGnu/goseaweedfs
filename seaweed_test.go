@@ -184,7 +184,7 @@ func TestFiler(t *testing.T) {
 	// test with prefix
 	filer := sw.filers[0]
 
-	_, err := filer.Upload(SmallFile, "/js/test.txt", "", "")
+	_, err := filer.UploadFile(SmallFile, "/js/test.txt", "", "")
 	require.Nil(t, err)
 
 	// try to download
@@ -202,7 +202,7 @@ func TestFiler(t *testing.T) {
 	require.Nil(t, err)
 
 	// test with non prefix
-	_, err = filer.Upload(SmallFile, "js/test1.jsx", "", "")
+	_, err = filer.UploadFile(SmallFile, "js/test1.jsx", "", "")
 	require.Nil(t, err)
 
 	data, _, err := filer.Get("js", nil, nil)
