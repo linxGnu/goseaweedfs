@@ -2,10 +2,13 @@ package goseaweedfs
 
 import (
 	"encoding/json"
+	"errors"
+	"fmt"
 	"io"
 	"io/ioutil"
 	"net/http"
 	"net/url"
+	"strings"
 )
 
 // Filer client
@@ -66,6 +69,29 @@ func (f *Filer) UploadFile(localFilePath, newPath, collection, ttl string) (resu
 	return
 }
 
+// UploadDir upload files from a directory.
+func (f *Filer) UploadDir(localDirPath, newPath, collection, ttl string) (results []*FilerUploadResult, err error) {
+	if strings.HasSuffix(localDirPath, "/") {
+		localDirPath = localDirPath[:(len(localDirPath) - 1)]
+	}
+	if !strings.HasPrefix(newPath, "/") {
+		newPath = "/" + newPath
+	}
+	files, err := listFilesRecursive(localDirPath)
+	if err != nil {
+		return results, err
+	}
+	for _, info := range files {
+		newFilePath := newPath + strings.Replace(info.Path, localDirPath, "", -1)
+		result, err := f.UploadFile(info.Path, newFilePath, collection, ttl)
+		if err != nil {
+			return results, err
+		}
+		results = append(results, result)
+	}
+	return
+}
+
 // Upload content.
 func (f *Filer) Upload(content io.Reader, fileSize int64, newPath, collection, ttl string) (result *FilerUploadResult, err error) {
 	fp := NewFilePartFromReader(ioutil.NopCloser(content), newPath, fileSize)
@@ -82,8 +108,33 @@ func (f *Filer) Upload(content io.Reader, fileSize int64, newPath, collection, t
 	return
 }
 
+func (f *Filer) ListDir(path string) (files []FilerFileInfo, err error) {
+	data, statusCode, err := f.GetJson(path, nil)
+	if err != nil {
+		return files, err
+	}
+	if statusCode != http.StatusOK {
+		return files, errors.New(fmt.Sprintf("response status code: %d", statusCode))
+	}
+	var res FilerListDirResponse
+	if err := json.Unmarshal(data, &res); err != nil {
+		return files, err
+	}
+	files = res.Entries
+	return
+}
+
 // Get response data from filer.
 func (f *Filer) Get(path string, args url.Values, header map[string]string) (data []byte, statusCode int, err error) {
+	data, statusCode, err = f.client.get(encodeURI(*f.base, path, args), header)
+	return
+}
+
+// Get response data from filer.
+func (f *Filer) GetJson(path string, args url.Values) (data []byte, statusCode int, err error) {
+	header := map[string]string{
+		"Accept": "application/json",
+	}
 	data, statusCode, err = f.client.get(encodeURI(*f.base, path, args), header)
 	return
 }
@@ -96,6 +147,13 @@ func (f *Filer) Download(path string, args url.Values, callback func(io.Reader) 
 
 // Delete a file/dir.
 func (f *Filer) Delete(path string, args url.Values) (err error) {
+	_, err = f.client.delete(encodeURI(*f.base, path, args))
+	return
+}
+
+// DeleteDir a dir.
+func (f *Filer) DeleteDir(path string) (err error) {
+	args := map[string][]string{"recursive": {"true"}}
 	_, err = f.client.delete(encodeURI(*f.base, path, args))
 	return
 }

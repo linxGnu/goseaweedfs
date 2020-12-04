@@ -6,6 +6,8 @@ import (
 	"io/ioutil"
 	"net/http"
 	"net/url"
+	"os"
+	"path/filepath"
 	"runtime"
 	"strings"
 
@@ -86,5 +88,32 @@ func readAll(r *http.Response) (body []byte, statusCode int, err error) {
 	statusCode = r.StatusCode
 	body, err = ioutil.ReadAll(r.Body)
 	r.Body.Close()
+	return
+}
+
+func isDir(path string) bool {
+	s, err := os.Stat(path)
+	if err != nil {
+		return false
+	}
+	return s.IsDir()
+}
+
+func listFilesRecursive(dirPath string) (files []FileInfo, err error) {
+	if err := filepath.Walk(dirPath, func(path string, info os.FileInfo, err error) error {
+		if !isDir(path) {
+			f, err := os.Open(path)
+			if err != nil {
+				return err
+			}
+			files = append(files, FileInfo{
+				Name: f.Name(),
+				Path: path,
+			})
+		}
+		return nil
+	}); err != nil {
+		return files, err
+	}
 	return
 }
