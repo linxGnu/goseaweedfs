@@ -34,4 +34,9 @@ type FilerFileInfo struct {
 	Extended        string
 	HardLinkId      string
 	HardLinkCounter int
+	Chunks          interface{}
+	Children        []FilerFileInfo
+	Name            string
+	Extension       string
+	IsDir           bool
 }

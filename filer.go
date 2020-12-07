@@ -108,6 +108,7 @@ func (f *Filer) Upload(content io.Reader, fileSize int64, newPath, collection, t
 	return
 }
 
+// List a directory.
 func (f *Filer) ListDir(path string) (files []FilerFileInfo, err error) {
 	data, statusCode, err := f.GetJson(path, nil)
 	if err != nil {
@@ -120,7 +121,29 @@ func (f *Filer) ListDir(path string) (files []FilerFileInfo, err error) {
 	if err := json.Unmarshal(data, &res); err != nil {
 		return files, err
 	}
-	files = res.Entries
+	for _, file := range res.Entries {
+		file = getFileWithExtendedFields(file)
+		files = append(files, file)
+	}
+	return
+}
+
+// List a directory recursively.
+func (f *Filer) ListDirRecursive(path string) (files []FilerFileInfo, err error) {
+	entries, err := f.ListDir(path)
+	if err != nil {
+		return files, err
+	}
+	for _, file := range entries {
+		file = getFileWithExtendedFields(file)
+		if file.IsDir {
+			file.Children, err = f.ListDirRecursive(file.FullPath)
+			if err != nil {
+				return files, err
+			}
+		}
+		files = append(files, file)
+	}
 	return
 }
 
