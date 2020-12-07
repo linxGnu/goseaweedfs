@@ -180,3 +180,9 @@ func (f *Filer) DeleteDir(path string) (err error) {
 	_, err = f.client.delete(encodeURI(*f.base, path, args))
 	return
 }
+
+// DeleteFile a file.
+func (f *Filer) DeleteFile(path string) (err error) {
+	_, err = f.client.delete(encodeURI(*f.base, path, nil))
+	return
+}

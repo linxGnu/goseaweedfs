@@ -8,6 +8,9 @@ type FileInfo struct {
 
 	// absolute path of the file
 	Path string
+
+	// MD5 hash
+	Md5 string
 }
 
 type FilerListDirResponse struct {
