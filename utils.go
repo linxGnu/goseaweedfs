@@ -3,6 +3,7 @@ package goseaweedfs
 import (
 	"context"
 	"crypto/md5"
+	"encoding/base64"
 	"io"
 	"io/ioutil"
 	"net/http"
@@ -111,6 +112,10 @@ func listFilesRecursive(dirPath string) (files []FileInfo, err error) {
 			if err != nil {
 				return err
 			}
+			path, err = filepath.Abs(path)
+			if err != nil {
+				return err
+			}
 			files = append(files, FileInfo{
 				Name: f.Name(),
 				Path: path,
@@ -163,12 +168,16 @@ func getFileWithExtendedFields(file FilerFileInfo) (res FilerFileInfo) {
 }
 
 func getFileMd5sum(filePath string) (md5sum string, err error) {
+	h := md5.New()
 	data, err := ioutil.ReadFile(filePath)
 	if err != nil {
 		return md5sum, err
 	}
-	digest := md5.New()
-	digest.Write(data)
-	md5sum = string(digest.Sum(nil))
+	content := strings.NewReader(string(data))
+	_, err = content.WriteTo(h)
+	if err != nil {
+		return md5sum, err
+	}
+	md5sum = base64.StdEncoding.EncodeToString(h.Sum(nil))
 	return
 }
