@@ -33,10 +33,10 @@ type FilerFileInfo struct {
 	GroupNames      string
 	SymlinkTarget   string
 	Md5             string
-	FileSize        int
+	FileSize        int64
 	Extended        string
 	HardLinkId      string
-	HardLinkCounter int
+	HardLinkCounter int64
 	Chunks          interface{}
 	Children        []FilerFileInfo
 	Name            string
