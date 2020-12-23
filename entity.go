@@ -11,9 +11,6 @@ type FileInfo struct {
 
 	// MD5 hash
 	Md5 string `json:"md5"`
-
-	// Sub Directory
-	Children []FileInfo `json:"children"`
 }
 
 type FilerListDirResponse struct {
