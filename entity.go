@@ -4,13 +4,16 @@ import "time"
 
 type FileInfo struct {
 	// name of the file
-	Name string
+	Name string `json:"name"`
 
 	// absolute path of the file
-	Path string
+	Path string `json:"path"`
 
 	// MD5 hash
-	Md5 string
+	Md5 string `json:"md5"`
+
+	// Sub Directory
+	Children []FileInfo `json:"children"`
 }
 
 type FilerListDirResponse struct {

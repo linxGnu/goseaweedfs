@@ -56,17 +56,24 @@ func (f *Filer) Close() (err error) {
 // UploadFile a file.
 func (f *Filer) UploadFile(localFilePath, newPath, collection, ttl string) (result *FilerUploadResult, err error) {
 	fp, err := NewFilePart(localFilePath)
-	if err == nil {
-		var data []byte
-		data, _, err = f.client.upload(encodeURI(*f.base, newPath, normalize(nil, collection, ttl)), localFilePath, fp.Reader, fp.MimeType)
-		if err == nil {
-			result = &FilerUploadResult{}
-			err = json.Unmarshal(data, result)
-		}
-
-		_ = fp.Close()
+	if err != nil {
+		return result, err
 	}
-	return
+	defer fp.Close()
+	var data []byte
+	data, status, err := f.client.upload(encodeURI(*f.base, newPath, normalize(nil, collection, ttl)), localFilePath, fp.Reader, fp.MimeType)
+	if err != nil {
+		return result, err
+	}
+	var res FilerUploadResult
+	if err = json.Unmarshal(data, &res); err != nil {
+		return result, err
+	}
+	result = &res
+	if status >= 400 {
+		return result, errors.New(res.Error)
+	}
+	return result, nil
 }
 
 // UploadDir upload files from a directory.
