@@ -168,20 +168,28 @@ func getFileWithExtendedFields(file FilerFileInfo) (res FilerFileInfo) {
 }
 
 func getFileMd5sum(filePath string) (md5sum string, err error) {
-	h := md5.New()
 	data, err := ioutil.ReadFile(filePath)
 	if err != nil {
 		return md5sum, err
 	}
+	return getBytesMd5sum(data)
+}
+
+func GetFileMd5sum(filePath string) (md5sum string, err error) {
+	return getFileMd5sum(filePath)
+}
+
+func getBytesMd5sum(data []byte) (md5sum string, err error) {
+	h := md5.New()
 	content := strings.NewReader(string(data))
 	_, err = content.WriteTo(h)
 	if err != nil {
 		return md5sum, err
 	}
 	md5sum = base64.StdEncoding.EncodeToString(h.Sum(nil))
-	return
+	return md5sum, nil
 }
 
-func GetFileMd5sum(filePath string) (md5sum string, err error) {
-	return getFileMd5sum(filePath)
+func GetBytesMd5sum(data []byte) (md5sum string, err error) {
+	return getBytesMd5sum(data)
 }
