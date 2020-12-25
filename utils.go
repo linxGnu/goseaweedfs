@@ -181,3 +181,7 @@ func getFileMd5sum(filePath string) (md5sum string, err error) {
 	md5sum = base64.StdEncoding.EncodeToString(h.Sum(nil))
 	return
 }
+
+func GetFileMd5sum(filePath string) (md5sum string, err error) {
+	return getFileMd5sum(filePath)
+}
