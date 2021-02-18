@@ -67,6 +67,9 @@ func (f *Filer) UploadFile(localFilePath, newPath, collection, ttl string) (resu
 	}
 	var res FilerUploadResult
 	if err = json.Unmarshal(data, &res); err != nil {
+		if status == 404 {
+			return nil, errors.New("404 not found")
+		}
 		return result, err
 	}
 	result = &res
