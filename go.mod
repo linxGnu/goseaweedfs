@@ -1,4 +1,4 @@
-module github.com/linxGnu/goseaweedfs
+module github.com/crawlab-team/goseaweedfs
 
 go 1.15
 
