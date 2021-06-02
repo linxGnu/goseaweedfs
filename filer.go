@@ -3,7 +3,6 @@ package goseaweedfs
 import (
 	"encoding/json"
 	"errors"
-	"fmt"
 	"io"
 	"io/ioutil"
 	"net/http"
@@ -120,12 +119,12 @@ func (f *Filer) Upload(content io.Reader, fileSize int64, newPath, collection, t
 
 // ListDir List a directory.
 func (f *Filer) ListDir(path string) (files []FilerFileInfo, err error) {
-	data, statusCode, err := f.GetJson(path, nil)
+	data, _, err := f.GetJson(path, nil)
 	if err != nil {
 		return files, err
 	}
-	if statusCode != http.StatusOK {
-		return files, errors.New(fmt.Sprintf("response status code: %d", statusCode))
+	if len(data) == 0 {
+		return
 	}
 	var res FilerListDirResponse
 	if err := json.Unmarshal(data, &res); err != nil {
