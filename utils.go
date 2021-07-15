@@ -31,7 +31,7 @@ func parseURI(uri string) (u *url.URL, err error) {
 }
 
 func encodeURI(base url.URL, path string, args url.Values) string {
-	base.Path = path
+	base.Path += path
 	query := base.Query()
 	args = normalize(args, "", "")
 	for k, vs := range args {
