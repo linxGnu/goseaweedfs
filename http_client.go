@@ -18,13 +18,20 @@ import (
 type httpClient struct {
 	client  *http.Client
 	workers *workerpool.Pool
+	authKey string
 }
 
-func newHTTPClient(client *http.Client) *httpClient {
+func newHTTPClient(client *http.Client, opts ...HttpClientOption) *httpClient {
 	c := &httpClient{
 		client:  client,
 		workers: createWorkerPool(),
 	}
+
+	// apply options
+	for _, opt := range opts {
+		opt(c)
+	}
+
 	c.workers.Start()
 	return c
 }
@@ -41,6 +48,11 @@ func (c *httpClient) get(url string, header map[string]string) (body []byte, sta
 			req.Header.Set(k, v)
 		}
 
+		// auth key
+		if c.authKey != "" {
+			req.Header.Set("Authorization", c.authKey)
+		}
+
 		var resp *http.Response
 		resp, err = c.client.Do(req)
 		if err == nil {
@@ -55,6 +67,11 @@ func (c *httpClient) delete(url string) (statusCode int, err error) {
 	req, err := http.NewRequest(http.MethodDelete, url, nil)
 	if err != nil {
 		return
+	}
+
+	// auth key
+	if c.authKey != "" {
+		req.Header.Set("Authorization", c.authKey)
 	}
 
 	r, err := c.client.Do(req)
@@ -125,6 +142,11 @@ func (c *httpClient) upload(url string, filename string, fileReader io.Reader, m
 		}
 		if mtype != "" {
 			h.Set("Content-Type", mtype)
+		}
+
+		// auth key
+		if c.authKey != "" {
+			h.Set("Authorization", c.authKey)
 		}
 
 		part, err := mw.CreatePart(h)

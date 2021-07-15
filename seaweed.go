@@ -111,7 +111,7 @@ func NewSeaweed(masterURL string, filers []string, chunkSize int64, client *http
 		c.filers = make([]*Filer, 0, len(filers))
 		for i := range filers {
 			var filer *Filer
-			filer, err = newFiler(filers[i], c.client)
+			filer, err = newFiler(filers[i], c.client.client)
 			if err != nil {
 				_ = c.Close()
 				return
