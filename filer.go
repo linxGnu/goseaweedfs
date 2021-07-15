@@ -12,11 +12,12 @@ import (
 
 // Filer client
 type Filer struct {
-	base   *url.URL
-	client *httpClient
+	base    *url.URL
+	client  *httpClient
+	authKey string
 }
 
-// FilerUploadResult upload result which responsed from filer server. According to https://github.com/chrislusf/seaweedfs/wiki/Filer-Server-API.
+// FilerUploadResult upload result of response from filer server. According to https://github.com/chrislusf/seaweedfs/wiki/Filer-Server-API.
 type FilerUploadResult struct {
 	Name    string `json:"name,omitempty"`
 	FileURL string `json:"url,omitempty"`
@@ -26,22 +27,35 @@ type FilerUploadResult struct {
 }
 
 // NewFiler new filer with filer server's url
-func NewFiler(u string, client *http.Client) (f *Filer, err error) {
-	return newFiler(u, newHTTPClient(client))
+func NewFiler(u string, client *http.Client, opts ...FilerOption) (f *Filer, err error) {
+	return newFiler(u, client, opts...)
 }
 
-func newFiler(u string, client *httpClient) (f *Filer, err error) {
+func newFiler(u string, client *http.Client, opts ...FilerOption) (f *Filer, err error) {
+	// base url
 	base, err := parseURI(u)
 	if err != nil {
 		return
 	}
 
+	// filer
 	f = &Filer{
-		base:   base,
-		client: client,
+		base: base,
 	}
 
-	return
+	// apply options
+	for _, opt := range opts {
+		opt(f)
+	}
+
+	// client
+	var clientOpts []HttpClientOption
+	if f.authKey != "" {
+		clientOpts = append(clientOpts, WithHttpClientAuthKey(f.authKey))
+	}
+	f.client = newHTTPClient(client, clientOpts...)
+
+	return f, nil
 }
 
 // Close underlying daemons.
