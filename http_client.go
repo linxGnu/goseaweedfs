@@ -144,11 +144,6 @@ func (c *httpClient) upload(url string, filename string, fileReader io.Reader, m
 			h.Set("Content-Type", mtype)
 		}
 
-		// auth key
-		if c.authKey != "" {
-			h.Set("Authorization", c.authKey)
-		}
-
 		part, err := mw.CreatePart(h)
 		if err == nil {
 			_, err = io.Copy(part, fileReader)
@@ -169,15 +164,27 @@ func (c *httpClient) upload(url string, filename string, fileReader io.Reader, m
 	})
 	c.workers.Do(task)
 
-	var resp *http.Response
-	resp, err = c.client.Post(url, mw.FormDataContentType(), r)
+	// request
+	req, err := http.NewRequest(http.MethodPost, url, r)
+	if err != nil {
+		return nil, 0, err
+	}
+
+	// request headers
+	req.Header.Set("Content-Type", mw.FormDataContentType())
+	if c.authKey != "" {
+		req.Header.Set("Authorization", c.authKey)
+	}
+
+	// perform request
+	res, err := c.client.Do(req)
 
 	// closing reader in case Posting error.
 	// This causes pipe writer fail to write and stop above task.
 	_ = r.Close()
 
 	if err == nil {
-		if respBody, statusCode, err = readAll(resp); err == nil {
+		if respBody, statusCode, err = readAll(res); err == nil {
 			result := <-task.Result()
 			err = result.Err
 		}
