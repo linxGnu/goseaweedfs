@@ -102,7 +102,17 @@ func (c *httpClient) delete(url string) (statusCode int, err error) {
 }
 
 func (c *httpClient) download(url string, callback func(io.Reader) error) (filename string, err error) {
-	r, err := c.client.Get(url)
+	req, err := http.NewRequest(http.MethodGet, url, nil)
+	if err != nil {
+		return
+	}
+
+	// auth key
+	if c.authKey != "" {
+		req.Header.Set("Authorization", c.authKey)
+	}
+
+	r, err := c.client.Do(req)
 	if err == nil {
 		if r.StatusCode != http.StatusOK {
 			drainAndClose(r.Body)
