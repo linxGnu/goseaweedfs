@@ -1,6 +1,7 @@
 package goseaweedfs
 
 import (
+	"bytes"
 	"encoding/json"
 	"errors"
 	"io"
@@ -68,16 +69,31 @@ func (f *Filer) Close() (err error) {
 
 // UploadFile a file.
 func (f *Filer) UploadFile(localFilePath, newPath, collection, ttl string) (result *FilerUploadResult, err error) {
+	// file part
 	fp, err := NewFilePart(localFilePath)
 	if err != nil {
 		return result, err
 	}
 	defer fp.Close()
+
+	// file reader
+	var fileReader io.Reader
+	if fp.FileSize == 0 {
+		// empty file
+		fileReader = bytes.NewBuffer(EmptyMark.Bytes())
+	} else {
+		// non-empty file
+		fileReader = fp.Reader
+	}
+
+	// upload
 	var data []byte
-	data, status, err := f.client.upload(encodeURI(*f.base, newPath, normalize(nil, collection, ttl)), localFilePath, fp.Reader, fp.MimeType)
+	data, status, err := f.client.upload(encodeURI(*f.base, newPath, normalize(nil, collection, ttl)), localFilePath, fileReader, fp.MimeType)
 	if err != nil {
 		return result, err
 	}
+
+	// upload result
 	var res FilerUploadResult
 	if err = json.Unmarshal(data, &res); err != nil {
 		if status == 404 {
@@ -86,9 +102,12 @@ func (f *Filer) UploadFile(localFilePath, newPath, collection, ttl string) (resu
 		return result, err
 	}
 	result = &res
+
+	// error
 	if status >= 400 {
 		return result, errors.New(res.Error)
 	}
+
 	return result, nil
 }
 

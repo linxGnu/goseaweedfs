@@ -1,10 +1,12 @@
 package goseaweedfs
 
 import (
+	"bytes"
 	"context"
 	"encoding/json"
 	"fmt"
 	"io"
+	"io/ioutil"
 	"mime"
 	"mime/multipart"
 	"net/http"
@@ -57,6 +59,11 @@ func (c *httpClient) get(url string, header map[string]string) (body []byte, sta
 		resp, err = c.client.Do(req)
 		if err == nil {
 			body, statusCode, err = readAll(resp)
+
+			// empty file check
+			if IsFileMarkBytes(body, EmptyMark) {
+				body = []byte{}
+			}
 		}
 	}
 
@@ -128,8 +135,24 @@ func (c *httpClient) download(url string, callback func(io.Reader) error) (filen
 			}
 		}
 
+		// body data
+		data, err := ioutil.ReadAll(r.Body)
+		if err != nil {
+			return "", err
+		}
+
+		// read writer
+		var readWriter io.ReadWriter
+
+		// empty file check
+		if IsFileMarkBytes(data, EmptyMark) {
+			readWriter = bytes.NewBuffer([]byte{})
+		} else {
+			readWriter = bytes.NewBuffer(data)
+		}
+
 		// execute callback
-		err = callback(r.Body)
+		err = callback(readWriter)
 
 		// drain and close body
 		drainAndClose(r.Body)
