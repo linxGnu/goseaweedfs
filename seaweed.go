@@ -2,7 +2,6 @@ package goseaweedfs
 
 import (
 	"bytes"
-	"context"
 	"encoding/json"
 	"errors"
 	"fmt"
@@ -13,8 +12,6 @@ import (
 	"path"
 	"strconv"
 	"strings"
-
-	workerpool "github.com/linxGnu/gumble/worker-pool"
 )
 
 var (
@@ -91,7 +88,6 @@ type Seaweed struct {
 	filers    []*Filer
 	chunkSize int64
 	client    *httpClient
-	workers   *workerpool.Pool
 }
 
 // NewSeaweed create new seaweed client. Master url must be a valid uri (which includes scheme).
@@ -120,18 +116,11 @@ func NewSeaweed(masterURL string, filers []string, chunkSize int64, client *http
 		}
 	}
 
-	// start underlying workers
-	c.workers = createWorkerPool()
-	c.workers.Start()
-
 	return
 }
 
 // Close underlying daemons.
 func (c *Seaweed) Close() (err error) {
-	if c.workers != nil {
-		c.workers.Stop()
-	}
 	if c.client != nil {
 		err = c.client.Close()
 	}
@@ -401,7 +390,9 @@ func (c *Seaweed) BatchUploadFileParts(files []*FilePart, collection string, ttl
 		return results, err
 	}
 
-	tasks := make([]*workerpool.Task, 0, len(files))
+	n := len(files)
+	result := make(chan taskResult, 1)
+
 	for i, file := range files {
 		file.FileID = assigned.FileID
 		if i > 0 {
@@ -415,26 +406,27 @@ func (c *Seaweed) BatchUploadFileParts(files []*FilePart, collection string, ttl
 		results[i].FileID = file.FileID
 		results[i].FileURL = assigned.PublicURL + "/" + file.FileID
 
-		task := c.uploadTask(file)
-		c.workers.Do(task)
-		tasks = append(tasks, task)
+		go c.uploadTask(file, i, result)
 	}
 
-	for i := range tasks {
-		r := <-tasks[i].Result()
-		if r.Err != nil {
-			results[i].Error = r.Err.Error()
+	for i := 0; i < n; i++ {
+		r := <-result
+		if r.err != nil {
+			results[r.meta.(int)].Error = r.err.Error()
 		}
 	}
 
 	return results, nil
 }
 
-func (c *Seaweed) uploadTask(file *FilePart) *workerpool.Task {
-	return workerpool.NewTask(context.Background(), func(ctx context.Context) (res interface{}, err error) {
-		_, err = c.UploadFilePart(file)
-		return
-	})
+func (c *Seaweed) uploadTask(file *FilePart, meta interface{}, result chan taskResult) {
+	_, err := c.UploadFilePart(file)
+	result <- taskResult{err: err, meta: meta}
+}
+
+type taskResult struct {
+	err  error
+	meta interface{}
 }
 
 // Replace file content with new one.
@@ -528,16 +520,16 @@ func (c *Seaweed) DeleteChunks(cm *ChunkManifest, args url.Values) (err error) {
 		return nil
 	}
 
-	tasks := make([]*workerpool.Task, 0, len(cm.Chunks))
+	n := len(cm.Chunks)
+	result := make(chan error, n)
+
 	for _, ci := range cm.Chunks {
-		task := c.deleteFileTask(ci.Fid, args)
-		c.workers.Do(task)
-		tasks = append(tasks, task)
+		go c.deleteFileTask(ci.Fid, args, result)
 	}
 
-	for i := range tasks {
-		if r := <-tasks[i].Result(); r.Err != nil {
-			err = r.Err
+	for i := 0; i < n; i++ {
+		if e := <-result; e != nil {
+			err = e
 			return
 		}
 	}
@@ -545,10 +537,8 @@ func (c *Seaweed) DeleteChunks(cm *ChunkManifest, args url.Values) (err error) {
 	return
 }
 
-func (c *Seaweed) deleteFileTask(fileID string, args url.Values) *workerpool.Task {
-	return workerpool.NewTask(context.Background(), func(ctx context.Context) (interface{}, error) {
-		return nil, c.DeleteFile(fileID, args)
-	})
+func (c *Seaweed) deleteFileTask(fileID string, args url.Values, result chan error) {
+	result <- c.DeleteFile(fileID, args)
 }
 
 // DeleteFile by id.

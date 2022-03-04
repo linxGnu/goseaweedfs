@@ -1,22 +1,12 @@
 package goseaweedfs
 
 import (
-	"context"
 	"io"
 	"io/ioutil"
 	"net/http"
 	"net/url"
-	"runtime"
 	"strings"
-
-	workerpool "github.com/linxGnu/gumble/worker-pool"
 )
-
-func createWorkerPool() *workerpool.Pool {
-	return workerpool.NewPool(context.Background(), workerpool.Option{
-		NumberWorker: runtime.NumCPU() << 1,
-	})
-}
 
 func parseURI(uri string) (u *url.URL, err error) {
 	u, err = url.Parse(uri)

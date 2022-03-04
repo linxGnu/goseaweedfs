@@ -1,7 +1,6 @@
 package goseaweedfs
 
 import (
-	"context"
 	"encoding/json"
 	"fmt"
 	"io"
@@ -11,26 +10,18 @@ import (
 	"net/textproto"
 	"path/filepath"
 	"strings"
-
-	workerpool "github.com/linxGnu/gumble/worker-pool"
 )
 
 type httpClient struct {
-	client  *http.Client
-	workers *workerpool.Pool
+	client *http.Client
 }
 
 func newHTTPClient(client *http.Client) *httpClient {
-	c := &httpClient{
-		client:  client,
-		workers: createWorkerPool(),
-	}
-	c.workers.Start()
+	c := &httpClient{client: client}
 	return c
 }
 
 func (c *httpClient) Close() (err error) {
-	c.workers.Stop()
 	return
 }
 
@@ -117,7 +108,8 @@ func (c *httpClient) upload(url string, filename string, fileReader io.Reader, m
 	// create multipart writer
 	mw := multipart.NewWriter(w)
 
-	task := workerpool.NewTask(context.Background(), func(ctx context.Context) (interface{}, error) {
+	result := make(chan error, 1)
+	go func() {
 		h := make(textproto.MIMEHeader)
 		h.Set("Content-Disposition", fmt.Sprintf(`form-data; name="file"; filename="%s"`, normalizeName(filename)))
 		if mtype == "" {
@@ -143,9 +135,8 @@ func (c *httpClient) upload(url string, filename string, fileReader io.Reader, m
 			_ = w.Close()
 		}
 
-		return nil, err
-	})
-	c.workers.Do(task)
+		result <- err
+	}()
 
 	var resp *http.Response
 	resp, err = c.client.Post(url, mw.FormDataContentType(), r)
@@ -156,8 +147,7 @@ func (c *httpClient) upload(url string, filename string, fileReader io.Reader, m
 
 	if err == nil {
 		if respBody, statusCode, err = readAll(resp); err == nil {
-			result := <-task.Result()
-			err = result.Err
+			err = <-result
 		}
 	}
 
